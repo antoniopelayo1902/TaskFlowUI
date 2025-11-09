@@ -1,9 +1,9 @@
 # TaskFlow-Cliente (Mock UI)
 
-Front-end en Next.js 14 (App Router) + TypeScript orientado a “vistas estáticas” con datos mock (sin backend). Incluye layouts público y autenticado, guardias de rol simulados, navegación completa, formularios con validaciones mínimas, tablas con filtros/paginación dummy, toasts y modales de confirmación.
+Front-end en Next.js 16 (App Router) + TypeScript orientado a “vistas estáticas” con datos mock (sin backend). Incluye layouts público y autenticado, guardias de rol simulados, navegación completa, formularios con validaciones mínimas, tablas con filtros/paginación dummy, toasts y modales de confirmación.
 
 Tecnologías
-- Next.js 14 (App Router) + TypeScript
+- Next.js 16 (App Router) + TypeScript
 - Tailwind CSS v4 + shadcn/ui (button, input, dialog, tabs, form, sonner)
 - Estado local y servicios mock (sin llamadas a API)
 - ESLint base de Next incluida
@@ -28,38 +28,48 @@ Cuentas demo de acceso (no hay password, el login es simulado por correo y rol)
 
 Durante Login/Registro puedes elegir el rol para simular permisos.
 
+Patrón Server/Client + metadata
+- Solo Server Components pueden exportar `export const metadata` o `generateMetadata`.
+- Las páginas que usan hooks/efectos o módulos cliente (toasts, Zustand, `useParams`, `usePathname`, etc.) deben mover la UI a un componente Client y dejar el `page.tsx`/`layout.tsx` como Server.
+- Documentación del patrón aplicado: ver docs/metadata-pattern.md
+
+Providers cliente globales
+- `app/providers.tsx` (Client) centraliza ThemeProvider, AuthProvider, NavbarPublic y Toaster.
+- `app/layout.tsx` (Server) envuelve todo con `ClientProviders` y agrega el `Footer`.
+- Esto evita que páginas deban ser Client solo por el toaster o navbar.
+
 Estructura principal (extracto)
 - app/
-  - layout.tsx            Layout público (NavbarPublic + Footer + Toaster + AuthProvider)
+  - layout.tsx            Layout público (Server) que envuelve con ClientProviders + Footer
   - page.tsx              Landing
-  - login/page.tsx        Login mock
-  - register/page.tsx     Registro mock
-  - (app)/layout.tsx      Layout autenticado (Sidebar + Topbar + guard)
-  - (app)/dashboard/page.tsx
-  - (app)/projects/page.tsx
-  - (app)/projects/[id]/layout.tsx    Header + tabs de proyecto
-  - (app)/projects/[id]/kanban/page.tsx
-  - (app)/projects/[id]/list/page.tsx
-  - (app)/projects/[id]/sprints/page.tsx
-  - (app)/projects/[id]/tags/page.tsx
-  - (app)/projects/[id]/members/page.tsx
-  - (app)/my-work/page.tsx
-  - (app)/goals/page.tsx
-  - (app)/calendar/page.tsx
-  - (app)/profile/page.tsx
-  - (app)/admin/layout.tsx            Guard admin
-  - (app)/admin/users/page.tsx        Administración/Usuarios (solo admin)
+  - login/page.tsx        Login mock (Server; renderiza componente cliente AuthCard)
+  - register/page.tsx     Registro mock (Server; renderiza componente cliente AuthCard)
+  - providers.tsx         ClientProviders (Theme + Auth + NavbarPublic + Toaster)
+  - (app)/layout.tsx      Layout autenticado (AppLayout + AuthGuard)
+  - (app)/dashboard/page.tsx               Server wrapper + DashboardPageClient
+  - (app)/projects/page.tsx                Server wrapper + ProjectsPageClient
+  - (app)/projects/[id]/layout.tsx         Header + tabs de proyecto (Client)
+  - (app)/projects/[id]/kanban/page.tsx    Server wrapper + KanbanPageClient (usa useParams)
+  - (app)/projects/[id]/list/page.tsx      Client (usa useParams)
+  - (app)/projects/[id]/sprints/page.tsx   Client (si usa hooks/params)
+  - (app)/projects/[id]/tags/page.tsx      Client (si usa hooks/params)
+  - (app)/projects/[id]/members/page.tsx   Client (si usa hooks/params)
+  - (app)/my-work/page.tsx                 Server wrapper + MyWorkPageClient
+  - (app)/goals/page.tsx                   Server wrapper + GoalsPageClient
+  - (app)/calendar/page.tsx                Client (usa estado/acciones cliente)
+  - (app)/profile/page.tsx                 Server wrapper + ProfilePageClient
+  - (app)/admin/users/page.tsx             Server wrapper + AdminUsersPageClient
 - components/
-  - layout/ (NavbarPublic, Footer, AppLayout, Sidebar, Topbar)
+  - layout/ (NavbarPublic [Client], Footer [Server], AppLayout, Sidebar, Topbar)
   - dashboard/ (SummaryCards, MySuggestionsPanel, PointsStreakWidget, RecentActivity)
   - tables/ (ProjectsTable, UsersTable, TasksList)
-  - forms/ (AuthCard, ProjectForm, TaskForm, SprintForm, TagForm, GoalForm, UserForm)
+  - forms/ (AuthCard [Client], ProjectForm, TaskForm, SprintForm, TagForm, GoalForm, UserForm)
   - kanban/ (KanbanBoard, Column, TaskCard)
   - calendar/ (CalendarToolbar, CalendarView, ConnectProviderBanner)
-  - common/ (Breadcrumbs, EmptyState, ConfirmDialog)
-  - providers/ (ThemeProvider, AuthProvider)
+  - common/ (Breadcrumbs [Client], EmptyState, ConfirmDialog)
+  - providers/ (ThemeProvider [Client], AuthProvider [Client])
 - lib/
-  - roles.ts, toast.ts, authGuard.tsx
+  - roles.ts, toast.ts, authGuard.tsx [Client]
 - services/mock/
   - auth.service.ts, users.service.ts, projects.service.ts, tasks.service.ts, sprints.service.ts, goals.service.ts
 
@@ -72,8 +82,8 @@ Navegación y pantallas
 Guardias y roles (mock)
 - services/mock/auth.service.ts expone currentUser simulado (localStorage) y login/logout mock.
 - lib/authGuard.tsx protege rutas. Si no hay usuario → /login. Si se requiere admin y el usuario no lo es → /dashboard.
-- (app)/layout.tsx aplica Theme + Toaster + AuthProvider.
-- (app)/layout.tsx público, (app)/layout.tsx autenticado + guard. /admin tiene su propio layout con requireRole: "admin".
+- app/layout.tsx (Server) aplica ClientProviders (Theme + Auth + Navbar + Toaster).
+- (app)/layout.tsx aplica AppLayout + AuthGuard (segmento autenticado). /admin puede tener su propio layout con requireRole.
 
 Datos mock (ejemplos principales)
 - Users: [{ id:"u1", name:"Ana", email:"ana@demo.io", role:"admin" }, …]
@@ -91,15 +101,15 @@ Componentes clave
 - Calendario: toolbar (Mes/Semana/Día) + vista estática (grilla) y banner “Conectar proveedor” simulado
 
 Notificaciones y confirmación
-- Toaster (sonner) en layout público
-- Helper toast en lib/toast.ts
+- Toaster (sonner) y NavbarPublic se inyectan globalmente desde ClientProviders.
+- Helper de toasts en lib/toast.ts
 - ConfirmDialog en components/common/ConfirmDialog.tsx
 
 Responsive / UX
 - Sidebar colapsable (oculto en móvil), layout fluido y componentes responsivos básicos
 - Loaders/skeletons simples simulados en guardias y tablas/estados vacíos
 
-Criterios de aceptación (cumplidos)
+Criterios de aceptación (mock)
 - Todas las páginas accesibles; navegación sin backend
 - Datos hardcodeados visibles (services/mock), sin fetch/axios
 - Guardias: pública vs protegida vs admin
@@ -107,33 +117,24 @@ Criterios de aceptación (cumplidos)
 - Confirmación de eliminación con modal
 - Estados vacíos y loaders visuales
 - Estilos consistentes en Tailwind + shadcn/ui
+- Cumplimiento del patrón metadata Server-only
 
 Cómo probar roles
 1) Ir a /login
 2) Usar uno de los correos demo (p. ej. ana@demo.io) y seleccionar rol en el formulario para simular permisos
 3) Intentar acceder a /admin/users con rol no admin → se redirige a /dashboard
 
-Checklist de capturas sugeridas
-- Landing pública (/)
-- Login (/login) y Registro (/register)
-- Dashboard (/dashboard) con tarjetas y widgets
-- Proyectos (/projects): listado + modal Crear/Editar + confirmación de eliminar
-- Detalle de proyecto (/projects/p1/*): tabs Kanban, Lista, Sprints, Etiquetas, Miembros
-- Mi trabajo (/my-work) con filtro por usuario actual
-- Metas (/goals): listado + crear/editar + barra de progreso
-- Calendario (/calendar): toolbar y vistas Month/Week/Day + banner conectar
-- Perfil (/profile) con formulario mock
-- Administración/Usuarios (/admin/users) (solo admin)
+Scripts útiles
+- npm run dev           Inicia el servidor de desarrollo
+- npm run build         Build de producción
+- npm start             Ejecuta el build
+- npm run check:metadata  Verifica que no existan archivos `.tsx` con `"use client"` que además exporten `metadata` o `generateMetadata`
 
 Notas
 - Este proyecto es 100% mock/estático: no existen llamadas reales a API ni integraciones de backend.
 - Se priorizan diseño y navegación; la “persistencia” es en memoria/localStorage para currentUser únicamente.
 - Puedes ampliar los mocks en services/mock para ajustar demo o mostrar más datos.
-
-Scripts útiles
-- npm run dev       Inicia el servidor de desarrollo
-- npm run build     Build de producción
-- npm start         Ejecuta el build
+- Si aparece un warning de “workspace root” por múltiples lockfiles, es inofensivo; opcionalmente puedes ajustar `turbopack.root` u `outputFileTracingRoot` en `next.config.ts`.
 
 Licencia
 Uso educativo/demostrativo.
