@@ -1,0 +1,113 @@
+// app/api/auth/google/route.ts
+import { NextResponse } from "next/server";
+
+type GoogleTokenResponse = {
+  access_token: string;
+  expires_in: number;
+  refresh_token?: string;
+  scope: string;
+  token_type: string;
+  id_token: string;
+};
+
+type GoogleUserInfo = {
+  sub: string;
+  name?: string;
+  email: string;
+  picture?: string;
+};
+
+export async function POST(req: Request) {
+  try {
+    const { code } = await req.json();
+
+    if (!code) {
+      return NextResponse.json(
+        { message: "Falta el código de Google" },
+        { status: 400 }
+      );
+    }
+
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+    const redirectUri = process.env.GOOGLE_REDIRECT_URI;
+
+    if (!clientId || !clientSecret || !redirectUri) {
+      console.error("Faltan variables de entorno de Google");
+      return NextResponse.json(
+        { message: "Configuración de Google incompleta" },
+        { status: 500 }
+      );
+    }
+
+    // 1) Intercambiar el authorization code por tokens
+    const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        code,
+        client_id: clientId,
+        client_secret: clientSecret,
+        redirect_uri: redirectUri,
+        grant_type: "authorization_code",
+      }),
+    });
+
+    if (!tokenRes.ok) {
+      const errorText = await tokenRes.text();
+      console.error("Error al obtener tokens de Google:", errorText);
+      return NextResponse.json(
+        { message: "No se pudieron obtener los tokens de Google" },
+        { status: 500 }
+      );
+    }
+
+    const tokenData = (await tokenRes.json()) as GoogleTokenResponse;
+    const accessToken = tokenData.access_token;
+
+    // 2) Obtener info del usuario con el access_token
+    const userRes = await fetch(
+      "https://openidconnect.googleapis.com/v1/userinfo",
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }
+    );
+
+    if (!userRes.ok) {
+      const errorText = await userRes.text();
+      console.error("Error al obtener perfil de Google:", errorText);
+      return NextResponse.json(
+        { message: "No se pudo obtener el perfil de Google" },
+        { status: 500 }
+      );
+    }
+
+    const profile = (await userRes.json()) as GoogleUserInfo;
+
+    // 3) Construir el usuario de tu app
+    const user = {
+      id: profile.sub, // ID único de Google
+      name: profile.name ?? profile.email.split("@")[0],
+      email: profile.email,
+      role: "developer" as const, // 👈 todos los nuevos son developer por default
+      // Si tu tipo User tiene avatar, podrías agregar:
+      // avatarUrl: profile.picture,
+    };
+
+    // 4) Devolver el usuario y algún token (puede ser id_token por ahora)
+    return NextResponse.json({
+      user,
+      token: tokenData.id_token, // o access_token si prefieres
+    });
+  } catch (error) {
+    console.error("Error en /api/auth/google:", error);
+    return NextResponse.json(
+      { message: "Error interno al procesar el login con Google" },
+      { status: 500 }
+    );
+  }
+}

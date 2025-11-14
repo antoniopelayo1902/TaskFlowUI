@@ -1,19 +1,24 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
-import type { User, Role } from "@/lib/roles";
-import {
-  getCurrentUser,
-  login as loginSvc,
-  logout as logoutSvc,
-} from "@/services/mock/auth.service";
+import type { User } from "@/lib/roles";
 import { toast } from "@/lib/toast";
 import { useRouter } from "next/navigation";
+import { googleLogout } from "@react-oauth/google";
+
+// Servicios del API real (los que definimos en services/api/auth.service.ts)
+import {
+  loginWithCredentials as loginApi,
+  loginWithGoogleAuthCode,
+} from "@/services/api/auth.service";
 
 type AuthContextType = {
   user: User | null;
   loading: boolean;
-  login: (email: string, roleOverride?: Role) => Promise<void>;
+
+  login: (email: string, password: string) => Promise<void>;
+  // login con proveedor Google (authorization code)
+  loginWithGoogle: (code: string) => Promise<void>;
   logout: () => Promise<void>;
 };
 
@@ -24,17 +29,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
+  // Por ahora no consultamos /auth/me.
+  // Simplemente marcamos loading = false al montar.
   useEffect(() => {
-    const u = getCurrentUser();
-    setUser(u);
     setLoading(false);
   }, []);
 
-  const login = async (email: string, roleOverride?: Role) => {
+  // LOGIN CON CREDENCIALES (usuario + contraseña)
+  const login = async (email: string, password: string) => {
     setLoading(true);
     try {
-      const u = await loginSvc(email, roleOverride);
-      setUser(u);
+      const { user: apiUser } = await loginApi(email, password);
+      setUser(apiUser);
       toast.success("Sesión iniciada");
       router.push("/dashboard");
     } catch (err) {
@@ -45,20 +51,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // LOGIN CON GOOGLE (authorization code flow)
+  const loginWithGoogle = async (code: string) => {
+    setLoading(true);
+    try {
+      const { user: apiUser } = await loginWithGoogleAuthCode(code);
+      setUser(apiUser);
+      toast.success("Sesión iniciada con Google");
+      router.push("/dashboard");
+    } catch (err) {
+      toast.destructive("Ocurrió un error al iniciar sesión con Google");
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const logout = async () => {
     setLoading(true);
     try {
-      await logoutSvc();
+      // Si tu backend expone /auth/logout, podrías llamarlo aquí:
+      // await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/logout`, {
+      //   method: "POST",
+      //   credentials: "include",
+      // });
+
       setUser(null);
       toast.info("Sesión cerrada");
       router.push("/login");
+
+      // Importante para cerrar la sesión de Google One Tap / SDK
+      googleLogout();
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        login,
+        loginWithGoogle,
+        logout,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
@@ -69,3 +107,4 @@ export function useAuth() {
   if (!ctx) throw new Error("useAuth must be used within <AuthProvider>");
   return ctx;
 }
+
