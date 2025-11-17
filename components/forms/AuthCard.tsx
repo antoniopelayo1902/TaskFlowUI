@@ -55,9 +55,11 @@ type RegisterValues = z.infer<typeof registerSchema>;
 export function AuthCard({
   className,
   mode = "login",
+  returnTo,
 }: {
   className?: string;
   mode?: "login" | "register";
+  returnTo?: string;
 }) {
   const { login } = useAuth();
   const router = useRouter();
@@ -89,7 +91,7 @@ export function AuthCard({
     try {
       if (mode === "login") {
         // LOGIN: correo + contraseña
-        await login(values.email, values.password);
+        await login(values.email, values.password, returnTo);
         // El AuthProvider ya hace toast y redirige a /dashboard
       } else {
         // REGISTRO: nombre + correo + contraseña

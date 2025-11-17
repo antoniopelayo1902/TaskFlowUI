@@ -5,16 +5,17 @@ import { useAuth } from "@/components/providers/AuthProvider";
 import { toast } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
 
-export default function GoogleButton() {
+export default function GoogleButton({ returnTo }: { returnTo?: string }) {
   const { loginWithGoogle } = useAuth();
 
   const login = useGoogleLogin({
     flow: "auth-code",
-    redirect_uri: "http://localhost:3000",
+    redirect_uri:
+      process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI ?? window.location.origin,
     scope: "openid profile email",
     onSuccess: async (codeResponse) => {
       try {
-        await loginWithGoogle(codeResponse.code);
+        await loginWithGoogle(codeResponse.code, returnTo);
       } catch (error) {
         console.error(error);
         toast.destructive("Ocurrió un error al iniciar sesión con Google");
@@ -36,4 +37,3 @@ export default function GoogleButton() {
     </Button>
   );
 }
-

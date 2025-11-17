@@ -6,7 +6,16 @@ export const metadata = {
   title: "Ingresar | TaskFlow",
 };
 
-export default function LoginPage() {
+export default function LoginPage({
+  searchParams,
+}: {
+  searchParams?: { returnTo?: string };
+}) {
+  const returnTo =
+    typeof searchParams?.returnTo === "string"
+      ? decodeURIComponent(searchParams.returnTo)
+      : undefined;
+
   return (
     <main className="container mx-auto px-4 py-12">
       <div className="mx-auto max-w-5xl">
@@ -22,7 +31,7 @@ export default function LoginPage() {
 
         <div className="mx-auto max-w-md space-y-6">
           {/* Formulario de credenciales (correo / contraseña) */}
-          <AuthCard mode="login" />
+          <AuthCard mode="login" returnTo={returnTo} />
 
           {/* Separador visual */}
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -32,7 +41,7 @@ export default function LoginPage() {
           </div>
 
           {/* Botón de inicio de sesión con Google */}
-          <GoogleButton />
+          <GoogleButton returnTo={returnTo} />
         </div>
 
         <p className="mt-6 text-center text-sm text-muted-foreground">
@@ -48,4 +57,3 @@ export default function LoginPage() {
     </main>
   );
 }
-

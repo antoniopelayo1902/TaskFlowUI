@@ -1,5 +1,8 @@
 // app/api/auth/google/route.ts
 import { NextResponse } from "next/server";
+import { dbConnect } from "@/lib/db";
+import { UserModel } from "@/models/User";
+import { setAuthCookies, signAccessToken, signRefreshToken } from "@/lib/jwt";
 
 type GoogleTokenResponse = {
   access_token: string;
@@ -40,7 +43,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // 1) Intercambiar el authorization code por tokens
+    // 1) Intercambio de authorization code por tokens
     const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: {
@@ -65,14 +68,14 @@ export async function POST(req: Request) {
     }
 
     const tokenData = (await tokenRes.json()) as GoogleTokenResponse;
-    const accessToken = tokenData.access_token;
+    const accessTokenGoogle = tokenData.access_token;
 
     // 2) Obtener info del usuario con el access_token
     const userRes = await fetch(
       "https://openidconnect.googleapis.com/v1/userinfo",
       {
         headers: {
-          Authorization: `Bearer ${accessToken}`,
+          Authorization: `Bearer ${accessTokenGoogle}`,
         },
       }
     );
@@ -88,21 +91,56 @@ export async function POST(req: Request) {
 
     const profile = (await userRes.json()) as GoogleUserInfo;
 
-    // 3) Construir el usuario de tu app
+    // 3) Vincular/crear usuario en DB
+    await dbConnect();
+
+    // Intentar vincular por sub (providerIds.google) o por email (si ya existe)
+    let userDoc =
+      (await UserModel.findOne({ "providerIds.google": profile.sub })) ||
+      (await UserModel.findOne({ email: profile.email.toLowerCase() }));
+
+    if (!userDoc) {
+      userDoc = await UserModel.create({
+        name: profile.name ?? profile.email.split("@")[0],
+        email: profile.email.toLowerCase(),
+        role: "developer",
+        providerIds: { google: profile.sub },
+      });
+    } else if (!userDoc.providerIds?.google) {
+      // Actualizar vínculo si existía cuenta por correo, pero sin google sub
+      userDoc.providerIds = { ...(userDoc.providerIds || {}), google: profile.sub };
+      await userDoc.save();
+    }
+
+    const json = userDoc.toJSON() as any;
     const user = {
-      id: profile.sub, // ID único de Google
-      name: profile.name ?? profile.email.split("@")[0],
-      email: profile.email,
-      role: "developer" as const, // 👈 todos los nuevos son developer por default
-      // Si tu tipo User tiene avatar, podrías agregar:
-      // avatarUrl: profile.picture,
+      id: json.id ?? userDoc._id.toString(),
+      name: json.name,
+      email: json.email,
+      role: json.role,
     };
 
-    // 4) Devolver el usuario y algún token (puede ser id_token por ahora)
-    return NextResponse.json({
-      user,
-      token: tokenData.id_token, // o access_token si prefieres
+    // 4) Emitir nuestros propios tokens (no usamos id_token de Google como sesión)
+    const accessToken = signAccessToken({
+      sub: user.id,
+      email: user.email,
+      role: user.role,
     });
+
+    let refreshToken: string | undefined;
+    try {
+      refreshToken = signRefreshToken({
+        sub: user.id,
+        email: user.email,
+        role: user.role,
+      });
+    } catch {
+      // Si no está configurado REFRESH_TOKEN_SECRET, seguimos sin refresh
+    }
+
+    const res = NextResponse.json({ user });
+    setAuthCookies(res, { accessToken, refreshToken });
+    return res;
   } catch (error) {
     console.error("Error en /api/auth/google:", error);
     return NextResponse.json(

@@ -61,3 +61,21 @@ export async function loginWithGoogleAuthCode(
 
   return res.json();
 }
+
+export async function getCurrentUser(): Promise<{ user: User } | null> {
+  const res = await fetch(`${BASE}/auth/me`, {
+    method: "GET",
+    credentials: "include",
+  });
+  if (res.status === 401) return null;
+  if (!res.ok) throw new Error("No fue posible obtener la sesión actual");
+  return res.json();
+}
+
+export async function logout(): Promise<void> {
+  const res = await fetch(`${BASE}/auth/logout`, {
+    method: "POST",
+    credentials: "include",
+  });
+  if (!res.ok) throw new Error("No fue posible cerrar sesión");
+}
