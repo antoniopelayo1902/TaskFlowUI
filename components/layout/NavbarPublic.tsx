@@ -4,19 +4,15 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/providers/AuthProvider";
-import {
-  IfAnonymous,
-  IfAuthenticated,
-  IfRole,
-} from "@/components/auth/If";
+import { IfAnonymous } from "@/components/auth/If";
 
-const baseNav = [
-  { href: "/", label: "Inicio" },
-];
+const baseNav = [{ href: "/", label: "Inicio" }];
 
 export default function NavbarPublic() {
   const pathname = usePathname();
-  const { logout } = useAuth();
+  const { user } = useAuth();
+
+  if (user) return null;
 
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-background/80 backdrop-blur">
@@ -29,7 +25,7 @@ export default function NavbarPublic() {
         </Link>
 
         <nav className="flex items-center gap-2 text-sm font-medium">
-          {/* Siempre visible: items base (Inicio, etc.) */}
+          {/* Siempre visible: items base */}
           {baseNav.map((item) => (
             <Link
               key={item.href}
@@ -70,44 +66,6 @@ export default function NavbarPublic() {
               Registro
             </Link>
           </IfAnonymous>
-
-          {/* Solo cuando SÍ está logueado */}
-          <IfAuthenticated>
-            <Link
-              href="/dashboard"
-              className={cn(
-                "rounded px-3 py-2 hover:bg-muted",
-                pathname === "/dashboard"
-                  ? "text-foreground"
-                  : "text-muted-foreground"
-              )}
-            >
-              Dashboard
-            </Link>
-
-            {/* Solo si el usuario tiene rol admin */}
-            <IfRole role="admin">
-              <Link
-                href="/admin/users"
-                className={cn(
-                  "rounded px-3 py-2 hover:bg-muted",
-                  pathname === "/admin/users"
-                    ? "text-foreground"
-                    : "text-muted-foreground"
-                )}
-              >
-                Administración
-              </Link>
-            </IfRole>
-
-            <button
-              type="button"
-              onClick={logout}
-              className="rounded px-3 py-2 text-muted-foreground hover:bg-muted"
-            >
-              Cerrar sesión
-            </button>
-          </IfAuthenticated>
         </nav>
       </div>
     </header>

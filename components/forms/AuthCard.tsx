@@ -6,9 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/providers/AuthProvider";
-import { registerAccount } from "@/services/api/auth.service";
 import { toast } from "@/lib/toast";
-import { useRouter } from "next/navigation";
 
 import {
   Form,
@@ -21,7 +19,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-// Esquema para LOGIN
 const loginSchema = z.object({
   email: z
     .string()
@@ -33,12 +30,8 @@ const loginSchema = z.object({
     .min(6, { message: "La contraseña debe tener al menos 6 caracteres" }),
 });
 
-// Esquema para REGISTRO
 const registerSchema = z.object({
-  name: z
-    .string()
-    .trim()
-    .min(1, { message: "Nombre requerido" }),
+  name: z.string().trim().min(1, { message: "Nombre requerido" }),
   email: z
     .string()
     .trim()
@@ -59,47 +52,31 @@ export function AuthCard({
   className?: string;
   mode?: "login" | "register";
 }) {
-  const { login } = useAuth();
-  const router = useRouter();
+  const { login, register: registerFn } = useAuth();
   const [submitting, setSubmitting] = useState(false);
 
-  // Elegimos el esquema según el modo
   const schema = mode === "login" ? loginSchema : registerSchema;
-
-  // Tipo combinado para que React Hook Form no se queje
   type FormValues = LoginValues & Partial<RegisterValues>;
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema as any),
     defaultValues:
       mode === "login"
-        ? {
-            email: "",
-            password: "",
-          }
-        : {
-            name: "",
-            email: "",
-            password: "",
-          },
+        ? { email: "", password: "" }
+        : { name: "", email: "", password: "" },
   });
 
   async function onSubmit(values: FormValues) {
     setSubmitting(true);
     try {
       if (mode === "login") {
-        // LOGIN: correo + contraseña
         await login(values.email, values.password);
-        // El AuthProvider ya hace toast y redirige a /dashboard
       } else {
-        // REGISTRO: nombre + correo + contraseña
-        await registerAccount(
-          values.name ?? "",
-          values.email,
-          values.password
-        );
-        toast.success("Cuenta creada correctamente, ahora puedes iniciar sesión");
-        router.push("/login");
+        await registerFn(values.name ?? "", values.email, values.password);
+      }
+    } catch (err: any) {
+      if (mode === "register" && err?.message?.includes("409")) {
+        toast.destructive("Ya existe un usuario con ese correo");
       }
     } finally {
       setSubmitting(false);

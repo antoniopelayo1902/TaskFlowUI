@@ -1,12 +1,24 @@
-// services/api/auth.service.ts
 import type { User } from "@/lib/roles";
 
 export type LoginResponse = {
   user: User;
-  token?: string;
+  token: string;
 };
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000/api";
+
+const TOKEN_KEY = "taskflow_token";
+
+export function setAuthToken(token: string | null) {
+  if (typeof window === "undefined") return;
+  if (token) localStorage.setItem(TOKEN_KEY, token);
+  else localStorage.removeItem(TOKEN_KEY);
+}
+
+export function getAuthToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(TOKEN_KEY);
+}
 
 export async function loginWithCredentials(
   email: string,
@@ -15,7 +27,6 @@ export async function loginWithCredentials(
   const res = await fetch(`${BASE}/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    credentials: "include",
     body: JSON.stringify({ email, password }),
   });
 
@@ -23,7 +34,9 @@ export async function loginWithCredentials(
     throw new Error("Credenciales inválidas");
   }
 
-  return res.json();
+  const data = (await res.json()) as LoginResponse;
+  setAuthToken(data.token);
+  return data;
 }
 
 export async function registerAccount(
@@ -34,7 +47,6 @@ export async function registerAccount(
   const res = await fetch(`${BASE}/auth/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    credentials: "include",
     body: JSON.stringify({ name, email, password }),
   });
 
@@ -42,7 +54,9 @@ export async function registerAccount(
     throw new Error("No fue posible registrar la cuenta");
   }
 
-  return res.json();
+  const data = (await res.json()) as LoginResponse;
+  setAuthToken(data.token);
+  return data;
 }
 
 export async function loginWithGoogleAuthCode(
@@ -51,7 +65,6 @@ export async function loginWithGoogleAuthCode(
   const res = await fetch(`${BASE}/auth/google`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    credentials: "include",
     body: JSON.stringify({ code }),
   });
 
@@ -59,5 +72,7 @@ export async function loginWithGoogleAuthCode(
     throw new Error("No fue posible iniciar sesión con Google");
   }
 
-  return res.json();
+  const data = (await res.json()) as LoginResponse;
+  setAuthToken(data.token);
+  return data;
 }

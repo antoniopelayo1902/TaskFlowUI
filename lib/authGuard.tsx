@@ -19,21 +19,21 @@ export default function AuthGuard({ children, options }: GuardProps) {
   useEffect(() => {
     if (loading) return;
 
-    // Si no hay usuario autenticado -> redirigir a login
+    // Si no hay usuario autenticado redirigir a login
     if (!user) {
       const returnTo = encodeURIComponent(pathname || "/dashboard");
       router.replace(`/login?returnTo=${returnTo}`);
       return;
     }
 
-    // Validación de acceso por rol (área de admin, etc.)
+    // Validación de acceso por rol 
     if (!canAccess(user, options)) {
       router.replace("/dashboard");
       return;
     }
   }, [user, loading, options, pathname, router]);
 
-  // Mientras se valida sesión o se redirige, mostrar spinner
+  // Mientras se valida sesión o se redirige
   if (loading || !user) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">

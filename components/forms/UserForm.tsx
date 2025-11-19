@@ -34,7 +34,6 @@ export default function UserForm({
   const onSubmit = async (values: FormInput) => {
     setSaving(true);
     try {
-      // Mock only: no real persistence
       const saved: User = initial
         ? { ...initial, ...values }
         : {

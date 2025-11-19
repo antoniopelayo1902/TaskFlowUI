@@ -10,7 +10,7 @@ export type Task = {
   status: TaskStatus;
   priority: TaskPriority;
   assigneeId?: string;
-  dueDate?: string; // ISO
+  dueDate?: string; 
   points?: number;
   tags?: string[];
   description?: string;
@@ -69,7 +69,7 @@ export const listStatuses = (): TaskStatus[] => ["Todo", "Doing", "Done"];
 
 export const listPriorities = (): TaskPriority[] => ["High", "Medium", "Low"];
 
-// CRUD mock (in-memory)
+
 export const createTask = (data: Omit<Task, "id">): Task => {
   const id = `t${tasks.length + 1}`;
   const task: Task = { id, ...data };

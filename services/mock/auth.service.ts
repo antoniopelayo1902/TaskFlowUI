@@ -12,7 +12,6 @@ export const getCurrentUser = (): User | null => {
       currentUser = JSON.parse(raw) as User;
     }
   } catch {
-    // ignore parse/storage errors
   }
   return currentUser;
 };

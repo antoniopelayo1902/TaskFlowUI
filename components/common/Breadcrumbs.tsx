@@ -16,7 +16,6 @@ export default function Breadcrumbs({ extra }: { extra?: Crumb[] } = {}) {
     { label: "Inicio", href: "/" },
     ...parts.map((segment, idx) => {
       const href = "/" + parts.slice(0, idx + 1).join("/");
-      // Replace dynamic segments visually
       const label = segment.startsWith("[") && segment.endsWith("]")
         ? segment.slice(1, -1)
         : decodeURIComponent(segment);

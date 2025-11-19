@@ -6,7 +6,7 @@ export type Project = {
   name: string;
   key: string;
   ownerId: string;
-  members: string[]; // user ids
+  members: string[]; 
 };
 
 let projects: Project[] = [
@@ -25,7 +25,7 @@ export const getOwner = (project: Project): User | undefined =>
 export const getMembers = (project: Project): User[] =>
   users.filter((u) => project.members.includes(u.id));
 
-// Dummy create/update/delete to mutate in-memory mocks
+
 export const createProject = (data: Omit<Project, "id">): Project => {
   const id = `p${projects.length + 1}`;
   const project: Project = { id, ...data };
@@ -60,7 +60,6 @@ export const removeMemberFromProject = (id: string, userId: string): Project | u
   if (!project) return undefined;
   project.members = project.members.filter((m) => m !== userId);
   if (project.ownerId === userId) {
-    // if removing owner, fallback to first member if exists
     project.ownerId = project.members[0] ?? project.ownerId;
   }
   return project;

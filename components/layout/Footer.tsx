@@ -7,17 +7,6 @@ export default function Footer() {
         <p>
           © {new Date().getFullYear()} TaskFlow. Vistas demo (mock) para capturas.
         </p>
-        <nav className="flex items-center gap-4">
-          <Link href="/" className="hover:underline">
-            Inicio
-          </Link>
-          <Link href="/login" className="hover:underline">
-            Ingresar
-          </Link>
-          <Link href="/register" className="hover:underline">
-            Registro
-          </Link>
-        </nav>
       </div>
     </footer>
   );

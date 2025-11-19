@@ -1,7 +1,7 @@
 export type Goal = {
   id: string;
   title: string;
-  progress: number; // 0-100
+  progress: number; 
   projectId?: string;
   ownerId?: string;
 };
@@ -18,7 +18,7 @@ export const listGoals = (projectId?: string): Goal[] =>
 export const getGoalById = (id: string): Goal | undefined =>
   goals.find((g) => g.id === id);
 
-// CRUD mock (in-memory)
+
 export const createGoal = (data: Omit<Goal, "id">): Goal => {
   const id = `g${goals.length + 1}`;
   const goal: Goal = { id, ...data };
