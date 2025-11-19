@@ -8,6 +8,8 @@ export interface IUser {
   password?: string;
   role: UserRole;
   provider: "credentials" | "google";
+  googleId?: string;    
+  avatarUrl?: string;   
   createdAt: Date;
   updatedAt: Date;
 }
@@ -27,6 +29,9 @@ const UserSchema = new Schema<IUser>(
       enum: ["credentials", "google"],
       required: true,
     },
+
+    googleId: { type: String },
+    avatarUrl: { type: String },
   },
   { timestamps: true }
 );

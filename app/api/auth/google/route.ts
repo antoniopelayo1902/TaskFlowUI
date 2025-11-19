@@ -3,25 +3,10 @@ import { connectDB } from "@/lib/db";
 import { User } from "@/models/User";
 import { signUserToken } from "@/lib/jwt";
 
-type GoogleTokenResponse = {
-  access_token: string;
-  expires_in: number;
-  refresh_token?: string;
-  scope: string;
-  token_type: string;
-  id_token: string;
-};
-
-type GoogleUserInfo = {
-  sub: string;
-  name?: string;
-  email: string;
-  picture?: string;
-};
+const TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
+const USERINFO_ENDPOINT = "https://openidconnect.googleapis.com/v1/userinfo";
 
 export async function POST(req: Request) {
-  await connectDB();
-
   try {
     const { code } = await req.json();
 
@@ -39,77 +24,112 @@ export async function POST(req: Request) {
     if (!clientId || !clientSecret || !redirectUri) {
       console.error("Faltan variables de entorno de Google");
       return NextResponse.json(
-        { message: "Configuración de Google incompleta" },
+        { message: "Error de configuración de Google" },
         { status: 500 }
       );
     }
 
-    const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+    const body = new URLSearchParams({
+      code,
+      client_id: clientId,
+      client_secret: clientSecret,
+      redirect_uri: redirectUri,
+      grant_type: "authorization_code",
+    });
+
+    const tokenRes = await fetch(TOKEN_ENDPOINT, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        code,
-        client_id: clientId,
-        client_secret: clientSecret,
-        redirect_uri: redirectUri,
-        grant_type: "authorization_code",
-      }),
+      body: body.toString(),
     });
 
     if (!tokenRes.ok) {
       const text = await tokenRes.text();
-      console.error("Error tokens Google:", text);
+      console.error("Error al obtener token de Google:", text);
       return NextResponse.json(
-        { message: "No se pudieron obtener los tokens de Google" },
+        { message: "No se pudo autenticar con Google" },
         { status: 500 }
       );
     }
 
-    const tokenData = (await tokenRes.json()) as GoogleTokenResponse;
+    const tokenData = await tokenRes.json();
+    const accessToken = tokenData.access_token as string;
 
-    const userRes = await fetch(
-      "https://openidconnect.googleapis.com/v1/userinfo",
-      {
-        headers: { Authorization: `Bearer ${tokenData.access_token}` },
-      }
-    );
+    const profileRes = await fetch(USERINFO_ENDPOINT, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
 
-    if (!userRes.ok) {
-      const text = await userRes.text();
-      console.error("Error perfil Google:", text);
+    if (!profileRes.ok) {
+      const text = await profileRes.text();
+      console.error("Error al obtener perfil de Google:", text);
       return NextResponse.json(
         { message: "No se pudo obtener el perfil de Google" },
         { status: 500 }
       );
     }
 
-    const profile = (await userRes.json()) as GoogleUserInfo;
+    const profile = await profileRes.json();
+    const { sub, email, name, picture } = profile;
 
-    let user = await User.findOne({ email: profile.email.toLowerCase() });
+    if (!email) {
+      return NextResponse.json(
+        { message: "Google no devolvió un correo electrónico" },
+        { status: 400 }
+      );
+    }
+
+    await connectDB();
+
+    let user = await User.findOne({ email });
 
     if (!user) {
       user = await User.create({
-        name: profile.name ?? profile.email.split("@")[0],
-        email: profile.email,
+        name: name ?? email,
+        email,
         provider: "google",
         role: "developer", 
+        googleId: sub,
+        avatarUrl: picture,
       });
+    } else {
+      let changed = false;
+
+      if (!user.googleId && sub) {
+        user.googleId = sub;
+        changed = true;
+      }
+      if (!user.avatarUrl && picture) {
+        user.avatarUrl = picture;
+        changed = true;
+      }
+      if (user.provider !== "google") {
+        user.provider = "google";
+        changed = true;
+      }
+
+      if (changed) {
+        await user.save();
+      }
     }
 
     const token = signUserToken(user);
 
-    const safeUser = {
-      id: (user as any)._id.toString(),
-      name: user.name,
-      email: user.email,
-      role: user.role,
-    };
-
-    return NextResponse.json({ user: safeUser, token }, { status: 200 });
-  } catch (error) {
-    console.error("Error en /api/auth/google:", error);
+    return NextResponse.json({
+      user: {
+        id: (user as any)._id.toString(),
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        provider: user.provider,
+      },
+      token,
+    });
+  } catch (err) {
+    console.error("Error en /api/auth/google:", err);
     return NextResponse.json(
-      { message: "Error interno al procesar login con Google" },
+      { message: "Error interno en autenticación con Google" },
       { status: 500 }
     );
   }
