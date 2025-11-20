@@ -2,8 +2,8 @@ export type Sprint = {
   id: string;
   projectId: string;
   name: string;
-  startDate: string; // ISO
-  endDate: string; // ISO
+  startDate: string; 
+  endDate: string; 
   goal?: string;
 };
 
@@ -19,7 +19,7 @@ export const listSprints = (projectId?: string): Sprint[] =>
 export const getSprintById = (id: string): Sprint | undefined =>
   sprints.find((s) => s.id === id);
 
-// CRUD mock (in-memory)
+
 export const createSprint = (data: Omit<Sprint, "id">): Sprint => {
   const id = `s${sprints.length + 1}`;
   const sprint: Sprint = { id, ...data };

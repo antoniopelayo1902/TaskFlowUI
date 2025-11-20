@@ -6,8 +6,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/providers/AuthProvider";
-import { users } from "@/services/mock/users.service";
-import type { Role } from "@/lib/roles";
+import { toast } from "@/lib/toast";
+
 import {
   Form,
   FormControl,
@@ -19,16 +19,31 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-const schema = z.object({
+const loginSchema = z.object({
   email: z
     .string()
     .trim()
     .min(1, { message: "Correo requerido" })
     .email({ message: "Correo inválido" }),
-  role: z.enum(["admin", "manager", "developer"]).optional(),
+  password: z
+    .string()
+    .min(6, { message: "La contraseña debe tener al menos 6 caracteres" }),
 });
 
-type FormValues = z.infer<typeof schema>;
+const registerSchema = z.object({
+  name: z.string().trim().min(1, { message: "Nombre requerido" }),
+  email: z
+    .string()
+    .trim()
+    .min(1, { message: "Correo requerido" })
+    .email({ message: "Correo inválido" }),
+  password: z
+    .string()
+    .min(6, { message: "La contraseña debe tener al menos 6 caracteres" }),
+});
+
+type LoginValues = z.infer<typeof loginSchema>;
+type RegisterValues = z.infer<typeof registerSchema>;
 
 export function AuthCard({
   className,
@@ -37,22 +52,32 @@ export function AuthCard({
   className?: string;
   mode?: "login" | "register";
 }) {
-  const { login } = useAuth();
+  const { login, register: registerFn } = useAuth();
   const [submitting, setSubmitting] = useState(false);
 
+  const schema = mode === "login" ? loginSchema : registerSchema;
+  type FormValues = LoginValues & Partial<RegisterValues>;
+
   const form = useForm<FormValues>({
-    resolver: zodResolver(schema),
-    defaultValues: {
-      email: users[0]?.email ?? "ana@demo.io",
-      role: users[0]?.role ?? "admin",
-    },
+    resolver: zodResolver(schema as any),
+    defaultValues:
+      mode === "login"
+        ? { email: "", password: "" }
+        : { name: "", email: "", password: "" },
   });
 
   async function onSubmit(values: FormValues) {
     setSubmitting(true);
     try {
-      // For register we just reuse login behavior (mock)
-      await login(values.email, values.role as Role | undefined);
+      if (mode === "login") {
+        await login(values.email, values.password);
+      } else {
+        await registerFn(values.name ?? "", values.email, values.password);
+      }
+    } catch (err: any) {
+      if (mode === "register" && err?.message?.includes("409")) {
+        toast.destructive("Ya existe un usuario con ese correo");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -70,12 +95,34 @@ export function AuthCard({
           {mode === "login" ? "Ingresar" : "Crear cuenta"}
         </h1>
         <p className="text-sm text-muted-foreground">
-          Usa un correo de la lista demo y selecciona un rol.
+          {mode === "login"
+            ? "Inicia sesión con tu correo y contraseña."
+            : "Completa el formulario para registrarte en TaskFlow."}
         </p>
       </div>
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+          {mode === "register" && (
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Nombre</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="Tu nombre"
+                      autoComplete="name"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
+
           <FormField
             control={form.control}
             name="email"
@@ -85,34 +132,33 @@ export function AuthCard({
                 <FormControl>
                   <Input
                     type="email"
-                    placeholder="ana@demo.io"
+                    placeholder="ejemplo@correo.com"
                     autoComplete="email"
                     {...field}
                   />
                 </FormControl>
                 <FormMessage />
-                <div className="mt-1 text-xs text-muted-foreground">
-                  Demo: {users.map((u) => u.email).join(" · ")}
-                </div>
               </FormItem>
             )}
           />
 
           <FormField
             control={form.control}
-            name="role"
+            name="password"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Rol</FormLabel>
+                <FormLabel>Contraseña</FormLabel>
                 <FormControl>
-                  <select
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  <Input
+                    type="password"
+                    placeholder="••••••••"
+                    autoComplete={
+                      mode === "login"
+                        ? "current-password"
+                        : "new-password"
+                    }
                     {...field}
-                  >
-                    <option value="admin">admin</option>
-                    <option value="manager">manager</option>
-                    <option value="developer">developer</option>
-                  </select>
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -128,10 +174,6 @@ export function AuthCard({
               ? "Ingresar"
               : "Crear cuenta"}
           </Button>
-
-          <div className="text-center text-xs text-muted-foreground">
-            No hay backend; esta pantalla solo simula autenticación.
-          </div>
         </form>
       </Form>
     </div>

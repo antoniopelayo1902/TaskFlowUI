@@ -45,7 +45,7 @@ export default function GoalsPageClient() {
     toast.success(editing ? "Actualizado" : "Se creó correctamente");
     setOpen(false);
     setEditing(null);
-    setGoals(listGoals()); // refresh from mock
+    setGoals(listGoals()); 
   };
 
   const onDelete = async () => {

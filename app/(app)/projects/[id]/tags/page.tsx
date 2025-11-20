@@ -57,7 +57,7 @@ export default function ProjectTagsPage() {
   const onDelete = async () => {
     if (!pendingDelete) return;
     setDeleting(true);
-    // Solo mock/local state
+
     setTimeout(() => {
       setTags((prev) => prev.filter((x) => x !== pendingDelete));
       toast.destructive("Eliminado", `Etiqueta "${pendingDelete}" eliminada`);

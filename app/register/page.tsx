@@ -12,15 +12,20 @@ export default function RegisterPage() {
         <header className="mb-8 text-center">
           <h1 className="text-3xl font-bold tracking-tight">Crear cuenta</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Este flujo es simulado. Usa un correo demo y elige un rol para continuar.
+            Registra tus datos para comenzar a utilizar TaskFlow.
           </p>
         </header>
 
-        <AuthCard mode="register" />
+        <div className="mx-auto max-w-md">
+          <AuthCard mode="register" />
+        </div>
 
         <p className="mt-6 text-center text-sm text-muted-foreground">
           ¿Ya tienes cuenta?{" "}
-          <Link href="/login" className="text-foreground underline underline-offset-4">
+          <Link
+            href="/login"
+            className="text-foreground underline underline-offset-4"
+          >
             Ingresar
           </Link>
         </p>
@@ -28,3 +33,4 @@ export default function RegisterPage() {
     </main>
   );
 }
+
