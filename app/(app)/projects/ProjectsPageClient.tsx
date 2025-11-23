@@ -11,12 +11,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import ProjectForm from "@/components/forms/ProjectForm";
-import type { Project } from "@/services/mock/projects.service";
+import type { Project } from "@/services/api/projects.service";
 import { toast } from "@/lib/toast";
 
 export default function ProjectsPageClient() {
   const [open, setOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<Project | null>(null);
+  const [refreshTick, setRefreshTick] = React.useState(0);
 
   const onCreate = () => {
     setEditing(null);
@@ -32,6 +33,7 @@ export default function ProjectsPageClient() {
     toast.success(editing ? "Actualizado" : "Se creó correctamente");
     setOpen(false);
     setEditing(null);
+    setRefreshTick((t) => t + 1);
   };
 
   return (
@@ -42,7 +44,7 @@ export default function ProjectsPageClient() {
         <Button onClick={onCreate}>Crear proyecto</Button>
       </div>
 
-      <ProjectsTable onCreate={onCreate} onEdit={onEdit} />
+      <ProjectsTable onCreate={onCreate} onEdit={onEdit} refreshAt={refreshTick} />
 
       <Dialog open={open} onOpenChange={(o) => (!o ? setOpen(false) : setOpen(true))}>
         <DialogContent className="sm:max-w-[640px]">

@@ -1,22 +1,31 @@
 "use client";
 
 import * as React from "react";
-import { listUsers } from "@/services/mock/users.service";
-import type { User, Role } from "@/lib/roles";
 import EmptyState from "@/components/common/EmptyState";
+import { fetchAdminUsers, type AdminUser } from "@/services/api/users.service";
+import type { Role } from "@/lib/roles";
+
+type MinimalUser = {
+  id: string;
+  name: string;
+  email: string;
+  role: Role;
+};
 
 type Props = {
   onCreate?: () => void;
-  onEdit?: (user: User) => void;
+  onEdit?: (user: MinimalUser) => void;
 };
 
 export default function UsersTable({ onCreate, onEdit }: Props) {
-  const [users, setUsers] = React.useState<User[]>([]);
+  const [users, setUsers] = React.useState<AdminUser[]>([]);
   const [q, setQ] = React.useState("");
   const [role, setRole] = React.useState<Role | "all">("all");
 
   React.useEffect(() => {
-    setUsers(listUsers());
+    fetchAdminUsers()
+      .then((us) => setUsers(us))
+      .catch(() => setUsers([]));
   }, []);
 
   const filtered = React.useMemo(() => {

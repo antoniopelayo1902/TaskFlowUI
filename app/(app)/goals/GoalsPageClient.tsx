@@ -13,23 +13,34 @@ import GoalForm from "@/components/forms/GoalForm";
 import EmptyState from "@/components/common/EmptyState";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
 import {
-  listGoals,
+  fetchGoals,
   type Goal,
   deleteGoal,
-} from "@/services/mock/goals.service";
-import { listProjects, getProjectById } from "@/services/mock/projects.service";
+} from "@/services/api/goals.service";
+import { fetchProjects, type Project } from "@/services/api/projects.service";
 import { toast } from "@/lib/toast";
 
 export default function GoalsPageClient() {
   const [goals, setGoals] = React.useState<Goal[]>([]);
+  const [projects, setProjects] = React.useState<Project[]>([]);
   const [open, setOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<Goal | null>(null);
   const [pendingDelete, setPendingDelete] = React.useState<Goal | null>(null);
   const [deleting, setDeleting] = React.useState(false);
 
-  React.useEffect(() => {
-    setGoals(listGoals());
+  const load = React.useCallback(async () => {
+    try {
+      const [gs, ps] = await Promise.all([fetchGoals(), fetchProjects()]);
+      setGoals(gs);
+      setProjects(ps);
+    } catch {
+      toast.destructive("No se pudieron cargar metas");
+    }
   }, []);
+
+  React.useEffect(() => {
+    load();
+  }, [load]);
 
   const onCreate = () => {
     setEditing(null);
@@ -41,31 +52,28 @@ export default function GoalsPageClient() {
     setOpen(true);
   };
 
-  const onSaved = (g: Goal) => {
+  const onSaved = (_g: Goal) => {
     toast.success(editing ? "Actualizado" : "Se creó correctamente");
     setOpen(false);
     setEditing(null);
-    setGoals(listGoals()); 
+    load();
   };
 
   const onDelete = async () => {
     if (!pendingDelete) return;
     setDeleting(true);
     try {
-      const ok = deleteGoal(pendingDelete.id);
-      if (ok) {
-        toast.destructive("Eliminado", `${pendingDelete.title} se eliminó correctamente`);
-        setGoals(listGoals());
-      } else {
-        toast.destructive("No se pudo eliminar");
-      }
+      await deleteGoal(pendingDelete.id);
+      toast.destructive("Eliminado", `${pendingDelete.title} se eliminó correctamente`);
+      await load();
+    } catch {
+      toast.destructive("No se pudo eliminar");
     } finally {
       setDeleting(false);
       setPendingDelete(null);
     }
   };
 
-  const projects = listProjects();
 
   return (
     <div className="space-y-6">
@@ -95,7 +103,7 @@ export default function GoalsPageClient() {
             </thead>
             <tbody>
               {goals.map((g) => {
-                const p = g.projectId ? getProjectById(g.projectId) : undefined;
+                const p = g.projectId ? projects.find((pr) => pr.id === g.projectId) : undefined;
                 return (
                   <tr key={g.id} className="border-t">
                     <td className="px-3 py-2">{g.title}</td>

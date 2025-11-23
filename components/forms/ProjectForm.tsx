@@ -4,9 +4,9 @@ import * as React from "react";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { users } from "@/services/mock/users.service";
-import type { Project } from "@/services/mock/projects.service";
-import { createProject, updateProject } from "@/services/mock/projects.service";
+import { fetchUsers, type SimpleUser } from "@/services/api/users-public.service";
+import type { Project } from "@/services/api/projects.service";
+import { createProject, updateProject } from "@/services/api/projects.service";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/lib/toast";
 
@@ -43,22 +43,42 @@ export default function ProjectForm({
       : {
           name: "",
           key: "",
-          ownerId: users[0]?.id ?? "",
-          members: users.slice(0, 2).map((u) => u.id),
+          ownerId: "",
+          members: [],
         },
   });
 
+  const [users, setUsers] = React.useState<SimpleUser[]>([]);
   const [saving, setSaving] = React.useState(false);
+
+  React.useEffect(() => {
+    let mounted = true;
+    fetchUsers()
+      .then((us) => {
+        if (!mounted) return;
+        setUsers(us);
+        if (!initial) {
+          const ownerId = us[0]?.id ?? "";
+          const members = us.slice(0, 2).map((u) => u.id);
+          form.setValue("ownerId", ownerId, { shouldDirty: true, shouldValidate: true });
+          form.setValue("members", members, { shouldDirty: true, shouldValidate: true });
+        }
+      })
+      .catch(() => {});
+    return () => {
+      mounted = false;
+    };
+  }, [initial, form]);
 
   const onSubmit = async (values: FormInput) => {
     setSaving(true);
     try {
       let saved: Project | undefined;
       if (initial) {
-        saved = updateProject(initial.id, values) as Project;
+        saved = await updateProject(initial.id, values);
         toast.info("Actualizado", "Proyecto actualizado correctamente");
       } else {
-        saved = createProject(values as Omit<Project, "id">);
+        saved = await createProject(values as Omit<Project, "id">);
         toast.success("Se creó correctamente");
       }
       if (saved) onSaved?.(saved);

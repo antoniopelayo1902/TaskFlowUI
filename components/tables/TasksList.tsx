@@ -2,12 +2,12 @@
 
 import * as React from "react";
 import {
-  listTasks,
+  fetchTasks,
   type Task,
   listStatuses,
   listPriorities,
   deleteTask,
-} from "@/services/mock/tasks.service";
+} from "@/services/api/tasks.service";
 import { Button } from "@/components/ui/button";
 import EmptyState from "@/components/common/EmptyState";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
@@ -29,11 +29,18 @@ export default function TasksList({ projectId, myUserId, onCreate, onEdit }: Pro
   const [pendingDelete, setPendingDelete] = React.useState<Task | null>(null);
   const [deleting, setDeleting] = React.useState(false);
 
-  React.useEffect(() => {
-    const data = listTasks(projectId);
-    const mine = myUserId ? data.filter((t) => t.assigneeId === myUserId) : data;
-    setTasks(mine);
+  const load = React.useCallback(async () => {
+    try {
+      const data = await fetchTasks({ projectId, assigneeId: myUserId });
+      setTasks(data);
+    } catch {
+      toast.destructive("No se pudieron cargar tareas");
+    }
   }, [projectId, myUserId]);
+
+  React.useEffect(() => {
+    load();
+  }, [load]);
 
   const filtered = React.useMemo(() => {
     const term = q.trim().toLowerCase();
@@ -49,15 +56,11 @@ export default function TasksList({ projectId, myUserId, onCreate, onEdit }: Pro
     if (!pendingDelete) return;
     setDeleting(true);
     try {
-      const ok = deleteTask(pendingDelete.id);
-      if (ok) {
-        const data = listTasks(projectId);
-        const mine = myUserId ? data.filter((t) => t.assigneeId === myUserId) : data;
-        setTasks(mine);
-        toast.destructive("Eliminado", `${pendingDelete.title} se eliminó correctamente`);
-      } else {
-        toast.destructive("No se pudo eliminar");
-      }
+      await deleteTask(pendingDelete.id);
+      await load();
+      toast.destructive("Eliminado", `${pendingDelete.title} se eliminó correctamente`);
+    } catch {
+      toast.destructive("No se pudo eliminar");
     } finally {
       setDeleting(false);
       setPendingDelete(null);

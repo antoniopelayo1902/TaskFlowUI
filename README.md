@@ -1,16 +1,43 @@
-# TaskFlow-Cliente (Mock UI)
+# TaskFlow-Cliente (UI + API real)
 
-Front-end en Next.js 16 (App Router) + TypeScript orientado a “vistas estáticas” con datos mock (sin backend). Incluye layouts público y autenticado, guardias de rol simulados, navegación completa, formularios con validaciones mínimas, tablas con filtros/paginación dummy, toasts y modales de confirmación.
+Front‑end en Next.js 16 (App Router) + TypeScript. El proyecto inició como “mock UI”, pero ahora incluye persistencia real con MongoDB/Mongoose para módulos clave (auth, admin/users, projects, tasks, sprints, goals). Se mantienen algunos módulos de demostración (p. ej. Kanban/Calendar) sin persistencia.
 
 Tecnologías
 - Next.js 16 (App Router) + TypeScript
 - Tailwind CSS v4 + shadcn/ui (button, input, dialog, tabs, form, sonner)
-- Estado local y servicios mock (sin llamadas a API)
+- Estado local y servicios cliente (fetch nativo)
+- Mongoose (MongoDB) para persistencia de usuarios, proyectos, tareas, sprints y metas
+- JWT (jsonwebtoken) para autenticación
 - ESLint base de Next incluida
+
+Estado actual (resumen)
+- Persistencia real:
+  - Auth (credenciales + Google OAuth)
+  - Admin de usuarios (listado y cambio de rol)
+  - Projects (CRUD + gestión de miembros)
+  - Tasks (CRUD)
+  - Sprints (CRUD)
+  - Goals (CRUD)
+- Mock/estático (pendiente de persistencia real):
+  - Kanban (drag visual)
+  - Calendar (vista estática y banner de conexión)
 
 Requisitos
 - Node 18+ (recomendado 20+)
 - npm 9+
+- MongoDB accesible (local o remoto)
+
+Variables de entorno (TaskFlowUI/.env)
+- Server/API
+  - MONGODB_URI=mongodb://localhost:27017/taskflow
+  - JWT_SECRET=un_secret_largo_aleatorio
+  - JWT_EXPIRES_IN=7d
+  - GOOGLE_CLIENT_ID=<client_id_servidor> (para /api/auth/google)
+  - GOOGLE_CLIENT_SECRET=<secret_servidor>
+  - GOOGLE_REDIRECT_URI=http://localhost:3000/login
+- Client
+  - NEXT_PUBLIC_API_URL=http://localhost:3000/api
+  - NEXT_PUBLIC_GOOGLE_CLIENT_ID=<client_id_publico>
 
 Instalación y ejecución
 1) Instalar dependencias
@@ -20,121 +47,134 @@ Instalación y ejecución
    npm run dev
    Abrir http://localhost:3000
 
-Cuentas demo de acceso (no hay password, el login es simulado por correo y rol)
-- ana@demo.io (admin)
-- bruno@demo.io (manager)
-- carla@demo.io (developer)
-- diego@demo.io (developer)
+Nota Turbopack: si aparece un warning de “workspace root”, puedes configurar `turbopack.root` en next.config o unificar lockfiles.
 
-Durante Login/Registro puedes elegir el rol para simular permisos.
+Autenticación y roles
+- Login/Registro por credenciales: /api/auth/login y /api/auth/register
+- Google OAuth: /api/auth/google (authorization code)
+- JWT devuelto en login/reg/google. Actualmente se guarda en localStorage (pendiente migrar a cookie httpOnly si se desea).
+- Rutas de escritura (POST/PUT/DELETE) requieren Authorization: Bearer <token>. Las lecturas (GET) son públicas por simplicidad.
 
-Patrón Server/Client + metadata
-- Solo Server Components pueden exportar `export const metadata` o `generateMetadata`.
-- Las páginas que usan hooks/efectos o módulos cliente (toasts, Zustand, `useParams`, `usePathname`, etc.) deben mover la UI a un componente Client y dejar el `page.tsx`/`layout.tsx` como Server.
-- Documentación del patrón aplicado: ver docs/metadata-pattern.md
-
-Providers cliente globales
-- `app/providers.tsx` (Client) centraliza ThemeProvider, AuthProvider, NavbarPublic y Toaster.
-- `app/layout.tsx` (Server) envuelve todo con `ClientProviders` y agrega el `Footer`.
-- Esto evita que páginas deban ser Client solo por el toaster o navbar.
+Rutas API relevantes (App Router)
+- Auth
+  - POST /api/auth/register
+  - POST /api/auth/login
+  - POST /api/auth/google
+- Admin
+  - GET /api/admin (lista usuarios con campos seguros, requiere rol admin)
+  - PUT /api/admin (actualiza rol, requiere rol admin)
+- Users públicos (para selects/etiquetas en UI)
+  - GET /api/users
+- Projects
+  - GET/POST /api/projects
+  - GET/PUT/DELETE /api/projects/[id]
+- Tasks
+  - GET/POST /api/tasks (query: projectId, assigneeId)
+  - GET/PUT/DELETE /api/tasks/[id]
+- Sprints
+  - GET/POST /api/sprints (query: projectId)
+  - GET/PUT/DELETE /api/sprints/[id]
+- Goals
+  - GET/POST /api/goals (query: projectId)
+  - GET/PUT/DELETE /api/goals/[id]
 
 Estructura principal (extracto)
 - app/
-  - layout.tsx            Layout público (Server) que envuelve con ClientProviders + Footer
-  - page.tsx              Landing
-  - login/page.tsx        Login mock (Server; renderiza componente cliente AuthCard)
-  - register/page.tsx     Registro mock (Server; renderiza componente cliente AuthCard)
-  - providers.tsx         ClientProviders (Theme + Auth + NavbarPublic + Toaster)
-  - (app)/layout.tsx      Layout autenticado (AppLayout + AuthGuard)
-  - (app)/dashboard/page.tsx               Server wrapper + DashboardPageClient
-  - (app)/projects/page.tsx                Server wrapper + ProjectsPageClient
-  - (app)/projects/[id]/layout.tsx         Header + tabs de proyecto (Client)
-  - (app)/projects/[id]/kanban/page.tsx    Server wrapper + KanbanPageClient (usa useParams)
-  - (app)/projects/[id]/list/page.tsx      Client (usa useParams)
-  - (app)/projects/[id]/sprints/page.tsx   Client (si usa hooks/params)
-  - (app)/projects/[id]/tags/page.tsx      Client (si usa hooks/params)
-  - (app)/projects/[id]/members/page.tsx   Client (si usa hooks/params)
-  - (app)/my-work/page.tsx                 Server wrapper + MyWorkPageClient
-  - (app)/goals/page.tsx                   Server wrapper + GoalsPageClient
-  - (app)/calendar/page.tsx                Client (usa estado/acciones cliente)
-  - (app)/profile/page.tsx                 Server wrapper + ProfilePageClient
-  - (app)/admin/users/page.tsx             Server wrapper + AdminUsersPageClient
+  - layout.tsx (Server) envuelve con ClientProviders + Footer
+  - providers.tsx (Client) ThemeProvider + AuthProvider + NavbarPublic + Toaster + GoogleOAuthProvider
+  - (app)/layout.tsx (Server) aplica AppLayout + AuthGuard (segmento autenticado)
+  - (app)/projects/page.tsx (Server wrapper + ProjectsPageClient)
+  - (app)/projects/[id]/members/page.tsx (Client; gestión de miembros con API real)
+  - (app)/projects/[id]/sprints/page.tsx (Client; lista sprints con API real)
+  - (app)/goals/page.tsx (Server wrapper + GoalsPageClient, API real)
+  - (app)/dashboard, (app)/my-work, (app)/calendar, (app)/profile (ver código)
 - components/
-  - layout/ (NavbarPublic [Client], Footer [Server], AppLayout, Sidebar, Topbar)
-  - dashboard/ (SummaryCards, MySuggestionsPanel, PointsStreakWidget, RecentActivity)
-  - tables/ (ProjectsTable, UsersTable, TasksList)
-  - forms/ (AuthCard [Client], ProjectForm, TaskForm, SprintForm, TagForm, GoalForm, UserForm)
-  - kanban/ (KanbanBoard, Column, TaskCard)
-  - calendar/ (CalendarToolbar, CalendarView, ConnectProviderBanner)
-  - common/ (Breadcrumbs [Client], EmptyState, ConfirmDialog)
-  - providers/ (ThemeProvider [Client], AuthProvider [Client])
-- lib/
-  - roles.ts, toast.ts, authGuard.tsx [Client]
-- services/mock/
-  - auth.service.ts, users.service.ts, projects.service.ts, tasks.service.ts, sprints.service.ts, goals.service.ts
+  - layout/, dashboard/, tables/, forms/, kanban/, calendar/, common/, providers/
+- services/api/
+  - auth.service.ts (login/register/google)
+  - users.service.ts (admin: lista y rol)
+  - users-public.service.ts (lista pública de usuarios; select/etiquetas)
+  - projects.service.ts (fetchProject(s), create/update/delete)
+  - tasks.service.ts (fetchTasks, create/update/delete)
+  - sprints.service.ts (fetchSprints, create/update/delete)
+  - goals.service.ts (fetchGoals, create/update/delete)
+- models/
+  - User, Project, Task, Sprint, Goal (Mongoose)
+- app/api/
+  - auth/*, admin/route.ts, users/route.ts
+  - projects/route.ts, projects/[id]/route.ts
+  - tasks/route.ts, tasks/[id]/route.ts
+  - sprints/route.ts, sprints/[id]/route.ts
+  - goals/route.ts, goals/[id]/route.ts
 
-Navegación y pantallas
-- Público: / (Landing), /login, /register
-- Protegidas: /dashboard, /projects, /projects/[id]/(kanban|list|sprints|tags|members), /my-work, /goals, /calendar, /profile
-- Admin: /admin/users (requiere rol admin)
-- Elementos de UI: Sidebar con estados activos, tabs en detalle de proyecto, breadcrumbs simples
+Patrón Server/Client + metadata
+- Solo Server Components pueden exportar `export const metadata` o `generateMetadata`.
+- Páginas que usan hooks (useState, useEffect, useParams, toasts, etc.) deben delegar UI a un componente Client y mantener `page.tsx`/`layout.tsx` como Server cuando sea posible.
+- Ver docs/metadata-pattern.md.
 
-Guardias y roles (mock)
-- services/mock/auth.service.ts expone currentUser simulado (localStorage) y login/logout mock.
-- lib/authGuard.tsx protege rutas. Si no hay usuario → /login. Si se requiere admin y el usuario no lo es → /dashboard.
-- app/layout.tsx (Server) aplica ClientProviders (Theme + Auth + Navbar + Toaster).
-- (app)/layout.tsx aplica AppLayout + AuthGuard (segmento autenticado). /admin puede tener su propio layout con requireRole.
+UI actualizada a API real
+- Projects:
+  - components/tables/ProjectsTable.tsx ahora usa fetchProjects + fetchUsers (no mock).
+  - components/forms/ProjectForm.tsx ahora usa fetchUsers para owner/members y create/update reales.
+  - app/(app)/projects/[id]/members/page.tsx usa fetchProject, updateProject y fetchUsers para agregar/remover miembros.
+- Tasks:
+  - components/forms/TaskForm.tsx usa fetchUsers para asignación; create/update reales.
+  - components/tables/TasksList.tsx lista y elimina tareas vía API real.
+- Sprints:
+  - forms + page (projects/[id]/sprints) conectados a API.
+- Goals:
+  - forms + GoalsPageClient conectados a API; lista y elimina.
 
-Datos mock (ejemplos principales)
-- Users: [{ id:"u1", name:"Ana", email:"ana@demo.io", role:"admin" }, …]
-- Projects: [{ id:"p1", name:"TaskFlow", key:"TF", ownerId:"u1", members:["u1","u2"] }, …]
-- Tasks: [{ id:"t1", projectId:"p1", title:"Setup", status:"Todo", priority:"High", assigneeId:"u2", dueDate:"2025-07-31", points:5 }, …]
-- Sprints: [{ id:"s1", projectId:"p1", name:"Sprint 1", startDate:"2025-07-01", endDate:"2025-07-15" }]
-- Goals: [{ id:"g1", title:"Mejorar throughput", progress:40, projectId:"p1" }]
+Cómo probar (UI)
+1) Autenticación:
+   - /login → Inicia sesión (credenciales o Google). Verifica que se navega a /dashboard.
+2) Projects:
+   - /projects → crea/edita/elimina. Owner/members se leen de /api/users.
+   - /projects/[id]/members → agrega/remueve miembros; persiste en DB.
+3) Tasks:
+   - Vistas que usan TasksList → crear/editar/eliminar; asignar usuarios reales.
+4) Sprints:
+   - /projects/[id]/sprints → CRUD real.
+5) Goals:
+   - /goals → CRUD real.
 
-Componentes clave
-- Formularios (react-hook-form + zod)
-  - Validaciones mínimas: requeridos, email válido, rango de fechas de Sprint, etc.
-  - Acciones mock con toasts: toast.success, toast.info, toast.destructive
-- Tablas: filtros/paginación dummy, estados vacíos, confirmaciones de eliminación
-- Kanban: columnas Todo/Doing/Done con tarjetas; drag & drop “visual” (no funcional)
-- Calendario: toolbar (Mes/Semana/Día) + vista estática (grilla) y banner “Conectar proveedor” simulado
+Pruebas rápidas con curl (opcional)
+- Registrar usuario y obtener token:
+  curl -s -X POST http://localhost:3000/api/auth/register \
+    -H "Content-Type: application/json" \
+    -d '{"name":"Tester","email":"tester@example.com","password":"Passw0rd!"}'
+  export TOKEN="PEGA_AQUI_EL_TOKEN"
 
-Notificaciones y confirmación
-- Toaster (sonner) y NavbarPublic se inyectan globalmente desde ClientProviders.
-- Helper de toasts en lib/toast.ts
-- ConfirmDialog en components/common/ConfirmDialog.tsx
+- Crear proyecto:
+  curl -s -X POST http://localhost:3000/api/projects \
+    -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+    -d '{"name":"API Project","key":"AP","ownerId":"<userId>","members":["<userId>"]}'
 
-Responsive / UX
-- Sidebar colapsable (oculto en móvil), layout fluido y componentes responsivos básicos
-- Loaders/skeletons simples simulados en guardias y tablas/estados vacíos
+- Listar proyectos:
+  curl -s http://localhost:3000/api/projects
 
-Criterios de aceptación (mock)
-- Todas las páginas accesibles; navegación sin backend
-- Datos hardcodeados visibles (services/mock), sin fetch/axios
-- Guardias: pública vs protegida vs admin
-- Formularios con validación mínima y toasts
-- Confirmación de eliminación con modal
-- Estados vacíos y loaders visuales
-- Estilos consistentes en Tailwind + shadcn/ui
-- Cumplimiento del patrón metadata Server-only
+- Actualizar/Borrar:
+  curl -s -X PUT http://localhost:3000/api/projects/{id} \
+    -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+    -d '{"name":"API Project v2"}'
+  curl -s -X DELETE http://localhost:3000/api/projects/{id} \
+    -H "Authorization: Bearer $TOKEN"
 
-Cómo probar roles
-1) Ir a /login
-2) Usar uno de los correos demo (p. ej. ana@demo.io) y seleccionar rol en el formulario para simular permisos
-3) Intentar acceder a /admin/users con rol no admin → se redirige a /dashboard
+Seguridad
+- Token en localStorage por compatibilidad con UI actual. Recomendado migrar a cookie httpOnly + SameSite.
+- Endpoints de escritura validan JWT (Authorization: Bearer <token>).
+- Añadir rate limiting/logs estructurados si se requiere endurecer.
 
-Scripts útiles
-- npm run dev           Inicia el servidor de desarrollo
-- npm run build         Build de producción
-- npm start             Ejecuta el build
-- npm run check:metadata  Verifica que no existan archivos `.tsx` con `"use client"` que además exporten `metadata` o `generateMetadata`
+Limitaciones conocidas
+- Kanban/Calendar siguen mock/estáticos (sin persistencia).
+- La rehidratación de sesión al recargar aún no valida el token automáticamente (se sugiere implementar /api/auth/me + AuthProvider que rehidrate al montar).
 
-Notas
-- Este proyecto es 100% mock/estático: no existen llamadas reales a API ni integraciones de backend.
-- Se priorizan diseño y navegación; la “persistencia” es en memoria/localStorage para currentUser únicamente.
-- Puedes ampliar los mocks en services/mock para ajustar demo o mostrar más datos.
-- Si aparece un warning de “workspace root” por múltiples lockfiles, es inofensivo; opcionalmente puedes ajustar `turbopack.root` u `outputFileTracingRoot` en `next.config.ts`.
+Roadmap sugerido
+- /api/auth/me + rehidratación en AuthProvider
+- Migrar Kanban/Calendar a API real (opcional)
+- Validaciones zod en POST/PUT, shape uniforme de errores
+- Índices/constraints (Project.key único; índices por FK)
+- Tests básicos de API y .env.example + script de seed
 
 Licencia
 Uso educativo/demostrativo.

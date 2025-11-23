@@ -28,7 +28,7 @@ export async function fetchAdminUsers(): Promise<AdminUser[]> {
     ...authHeaders(),
   };
 
-  const res = await fetch(`${BASE}/admin/users`, {
+  const res = await fetch(`${BASE}/admin`, {
     headers,
     cache: "no-store",
   });
@@ -50,7 +50,7 @@ export async function updateUserRole(
     ...authHeaders(),
   };
 
-  const res = await fetch(`${BASE}/admin/users`, {
+  const res = await fetch(`${BASE}/admin`, {
     method: "PUT",
     headers,
     body: JSON.stringify({ userId, role }),
