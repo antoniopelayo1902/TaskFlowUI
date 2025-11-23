@@ -47,6 +47,13 @@ Instalación y ejecución
    npm run dev
    Abrir http://localhost:3000
 
+Documentación OpenAPI/Swagger
+- Especificación OpenAPI: GET /api/docs/openapi
+- UI interactiva Swagger: http://localhost:3000/api-docs
+- Notas:
+  - Endpoints de escritura requieren Authorization: Bearer <token> (ver sección Autenticación).
+  - La UI usa swagger-ui-react con carga dinámica para evitar SSR.
+
 Nota Turbopack: si aparece un warning de “workspace root”, puedes configurar `turbopack.root` en next.config o unificar lockfiles.
 
 Autenticación y roles
