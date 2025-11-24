@@ -5,6 +5,7 @@ import SummaryCards from "@/components/dashboard/SummaryCards";
 import MySuggestionsPanel from "@/components/dashboard/MySuggestionsPanel";
 import PointsStreakWidget from "@/components/dashboard/PointsStreakWidget";
 import RecentActivity from "@/components/dashboard/RecentActivity";
+import RealtimeActivityFeed from "@/components/realtime/RealtimeActivityFeed";
 
 export default function DashboardPageClient() {
   return (
@@ -16,6 +17,7 @@ export default function DashboardPageClient() {
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
+          <RealtimeActivityFeed />
           <MySuggestionsPanel />
           <RecentActivity />
         </div>

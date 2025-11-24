@@ -183,5 +183,63 @@ Roadmap sugerido
 - Índices/constraints (Project.key único; índices por FK)
 - Tests básicos de API y .env.example + script de seed
 
+Sockets (Tiempo real con Socket.IO)
+- Objetivo: comunicación en tiempo real autenticada con JWT, rooms por proyecto y canal global.
+- Estado: Implementado server Socket.IO dedicado (lib/socket-server.ts), warm-up /api/socket, factory cliente (lib/socket-client.ts), hook (hooks/useSocket.ts) y demos UI.
+- Demo incluida:
+  - Dashboard: components/realtime/RealtimeActivityFeed (canal global activity:*).
+  - Projects/[id]/kanban: ProjectPresence (presence:* por room project:{id}) y TaskEventsDemo (task:* mock).
+
+Dependencias
+- socket.io (server), socket.io-client (client).
+
+Variables de entorno (opcional, valores por defecto)
+- SOCKET_PORT=3001 (puerto del servidor sockets; por defecto 3001)
+- NEXT_PUBLIC_SOCKET_PORT=3001 (puerto del cliente; por defecto 3001)
+- NEXT_PUBLIC_SOCKET_URL=<url_completa> (opcional; si se define, tiene prioridad sobre lo anterior)
+- CORS: en dev se permite http://localhost:3000; en prod usa NEXT_PUBLIC_SITE_URL si está definido.
+
+Arquitectura
+- Servidor (persistente con guardias globalThis):
+  - lib/socket-server.ts
+    - http.createServer() único en puerto SOCKET_PORT.
+    - CORS configurado.
+    - Middleware de autenticación: toma token de handshake (auth.token o query.token) y valida con lib/jwt.verifyUserToken.
+    - Rooms: 'join-room' y 'leave-room'.
+    - Eventos:
+      - activity:post → emite activity:new (global).
+      - task:create|update|move → emite a room project:{projectId}.
+      - presence:ping → emite presence:users (lista mock de conectados por room).
+    - Presencia: mapa en memoria por room (mock).
+  - app/api/socket/route.ts: inicializa perezosamente el servidor (GET /api/socket) con no-store.
+- Cliente:
+  - lib/socket-client.ts: createSocket(token) resuelve URL de sockets (NEXT_PUBLIC_SOCKET_URL o derivada).
+  - hooks/useSocket.ts: crea/destruye socket, helpers emit/on/off/joinRoom/leaveRoom, warm-up automático a /api/socket.
+
+Componentes de demostración
+- components/realtime/RealtimeActivityFeed: feed global; botón para activity:post.
+- components/realtime/ProjectPresence: unirse a project:{id}, muestra usuarios conectados (mock).
+- components/realtime/TaskEventsDemo: emitir/escuchar task:create|update|move (mock) en project:{id}.
+
+Integración de ejemplo en páginas
+- app/(app)/dashboard/DashboardPageClient.tsx → RealtimeActivityFeed.
+- app/(app)/projects/[id]/kanban/KanbanPageClient.tsx → ProjectPresence + TaskEventsDemo.
+
+Cómo probar (local)
+1) Levantar la app: npm run dev (http://localhost:3000).
+2) Autenticarte (login/register) para obtener JWT (guardado en localStorage).
+3) Dashboard:
+   - Abrir /dashboard. Click en “Publicar mensaje”. Ver el item en “Actividad en tiempo real”.
+4) Presencia y tareas:
+   - Abrir dos ventanas en /projects/{id}/kanban (mismo {id}).
+   - Ver “Presencia en proyecto” actualizarse al abrir ambas.
+   - Usar controles de “Task Events (mock)” para emitir task:create/update/move y verlos llegar en ambas ventanas.
+5) No debe registrarse “Multiple socket servers initialized” en consola (guardia global).
+
+Notas de seguridad
+- Handshake exige JWT válido; conexiones sin token reciben Unauthorized.
+- No se persiste información de sockets en DB (mock). Payloads mínimos sin datos sensibles.
+- Para producción, considerar rate limiting, logs y revisar CORS/orígenes.
+
 Licencia
 Uso educativo/demostrativo.
