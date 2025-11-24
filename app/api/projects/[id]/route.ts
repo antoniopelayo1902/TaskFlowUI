@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { Project } from "@/models/Project";
 import { verifyUserToken } from "@/lib/jwt";
+import { getIO } from "@/lib/socket-server";
 
 type JwtPayload = {
   sub: string;
@@ -78,6 +79,18 @@ export async function PUT(
       return NextResponse.json({ message: "Proyecto no encontrado" }, { status: 404 });
     }
 
+    // Realtime: activity feed for project update
+    try {
+      const io = getIO();
+      io.emit("activity:new", {
+        userId: user.sub,
+        msg: `Project updated: ${String(updated.name)} [${String(updated.key)}]`,
+        ts: Date.now(),
+      });
+    } catch (e) {
+      console.error("socket emit error (project:updated):", e);
+    }
+
     return NextResponse.json(
       {
         project: {
@@ -116,6 +129,18 @@ export async function DELETE(
 
     if (!deleted) {
       return NextResponse.json({ message: "Proyecto no encontrado" }, { status: 404 });
+    }
+
+    // Realtime: activity feed for project delete
+    try {
+      const io = getIO();
+      io.emit("activity:new", {
+        userId: user.sub,
+        msg: `Project deleted: ${String((deleted as any)?.name || "")} [${String((deleted as any)?.key || "")}]`,
+        ts: Date.now(),
+      });
+    } catch (e) {
+      console.error("socket emit error (project:deleted):", e);
     }
 
     return NextResponse.json({ ok: true }, { status: 200 });

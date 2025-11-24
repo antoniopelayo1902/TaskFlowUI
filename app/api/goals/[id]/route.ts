@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { Goal } from "@/models/Goal";
 import { verifyUserToken } from "@/lib/jwt";
+import { getIO } from "@/lib/socket-server";
 
 type JwtPayload = {
   sub: string;
@@ -80,6 +81,18 @@ export async function PUT(
       return NextResponse.json({ message: "Meta no encontrada" }, { status: 404 });
     }
 
+    // Realtime: activity feed for goal update
+    try {
+      const io = getIO();
+      io.emit("activity:new", {
+        userId: user.sub,
+        msg: `Goal updated: ${String(updated.title)}`,
+        ts: Date.now(),
+      });
+    } catch (e) {
+      console.error("socket emit error (goal:updated):", e);
+    }
+
     return NextResponse.json(
       {
         goal: {
@@ -118,6 +131,18 @@ export async function DELETE(
 
     if (!deleted) {
       return NextResponse.json({ message: "Meta no encontrada" }, { status: 404 });
+    }
+
+    // Realtime: activity feed for goal delete
+    try {
+      const io = getIO();
+      io.emit("activity:new", {
+        userId: user.sub,
+        msg: `Goal deleted: ${String((deleted as any)?.title || "")}`,
+        ts: Date.now(),
+      });
+    } catch (e) {
+      console.error("socket emit error (goal:deleted):", e);
     }
 
     return NextResponse.json({ ok: true }, { status: 200 });

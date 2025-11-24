@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { Project } from "@/models/Project";
 import { verifyUserToken } from "@/lib/jwt";
+import { getIO } from "@/lib/socket-server";
 
 type JwtPayload = {
   sub: string;
@@ -61,6 +62,18 @@ export async function POST(req: Request) {
       ownerId: String(ownerId),
       members: Array.isArray(members) ? members.map(String) : [],
     });
+
+    // Realtime: global activity feed on project creation
+    try {
+      const io = getIO();
+      io.emit("activity:new", {
+        userId: user.sub,
+        msg: `Project created: ${String(created.name)} [${String(created.key)}]`,
+        ts: Date.now(),
+      });
+    } catch (e) {
+      console.error("socket emit error (project:created):", e);
+    }
 
     return NextResponse.json(
       {

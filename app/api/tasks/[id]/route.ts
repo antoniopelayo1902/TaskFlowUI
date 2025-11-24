@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { Task } from "@/models/Task";
 import { verifyUserToken } from "@/lib/jwt";
+import { getIO } from "@/lib/socket-server";
 
 type JwtPayload = {
   sub: string;
@@ -88,6 +89,24 @@ export async function PUT(
       return NextResponse.json({ message: "Tarea no encontrada" }, { status: 404 });
     }
 
+    // Realtime: broadcast task:updated and activity
+    try {
+      const io = getIO();
+      const payload = {
+        id: (updated as any)._id.toString(),
+        title: String(updated.title),
+        projectId: String(updated.projectId),
+      };
+      io.to(`project:${payload.projectId}`).emit("task:updated", payload);
+      io.emit("activity:new", {
+        userId: user.sub,
+        msg: `Task updated: ${payload.title}`,
+        ts: Date.now(),
+      });
+    } catch (e) {
+      console.error("socket emit error (task:updated):", e);
+    }
+
     return NextResponse.json(
       {
         task: {
@@ -131,6 +150,18 @@ export async function DELETE(
 
     if (!deleted) {
       return NextResponse.json({ message: "Tarea no encontrada" }, { status: 404 });
+    }
+
+    // Realtime: activity feed for task delete
+    try {
+      const io = getIO();
+      io.emit("activity:new", {
+        userId: user.sub,
+        msg: `Task deleted: ${String((deleted as any)?.title || id)}`,
+        ts: Date.now(),
+      });
+    } catch (e) {
+      console.error("socket emit error (task:deleted):", e);
     }
 
     return NextResponse.json({ ok: true }, { status: 200 });

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { Task } from "@/models/Task";
 import { verifyUserToken } from "@/lib/jwt";
+import { getIO } from "@/lib/socket-server";
 
 type JwtPayload = {
   sub: string;
@@ -96,6 +97,24 @@ export async function POST(req: Request) {
       tags: Array.isArray(tags) ? tags.map(String) : [],
       description: typeof description === "string" ? description : undefined,
     });
+
+    // Realtime: broadcast task:created and activity
+    try {
+      const io = getIO();
+      const payload = {
+        id: (doc as any)._id.toString(),
+        title: String(doc.title),
+        projectId: String(doc.projectId),
+      };
+      io.to(`project:${payload.projectId}`).emit("task:created", payload);
+      io.emit("activity:new", {
+        userId: user.sub,
+        msg: `Task created: ${payload.title}`,
+        ts: Date.now(),
+      });
+    } catch (e) {
+      console.error("socket emit error (task:created):", e);
+    }
 
     return NextResponse.json(
       {

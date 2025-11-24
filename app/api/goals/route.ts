@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { Goal } from "@/models/Goal";
 import { verifyUserToken } from "@/lib/jwt";
+import { getIO } from "@/lib/socket-server";
 
 type JwtPayload = {
   sub: string;
@@ -76,6 +77,18 @@ export async function POST(req: Request) {
       projectId: projectId ? String(projectId) : undefined,
       ownerId: ownerId ? String(ownerId) : undefined,
     });
+
+    // Realtime: activity feed for goal creation
+    try {
+      const io = getIO();
+      io.emit("activity:new", {
+        userId: user.sub,
+        msg: `Goal created: ${String(doc.title)}`,
+        ts: Date.now(),
+      });
+    } catch (e) {
+      console.error("socket emit error (goal:created):", e);
+    }
 
     return NextResponse.json(
       {
