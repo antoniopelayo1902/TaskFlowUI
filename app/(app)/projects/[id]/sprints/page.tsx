@@ -14,10 +14,10 @@ import ConfirmDialog from "@/components/common/ConfirmDialog";
 import SprintForm from "@/components/forms/SprintForm";
 import EmptyState from "@/components/common/EmptyState";
 import {
-  listSprints,
+  fetchSprints,
   type Sprint,
   deleteSprint,
-} from "@/services/mock/sprints.service";
+} from "@/services/api/sprints.service";
 import { toast } from "@/lib/toast";
 
 export default function ProjectSprintsPage() {
@@ -30,9 +30,18 @@ export default function ProjectSprintsPage() {
   const [pendingDelete, setPendingDelete] = React.useState<Sprint | null>(null);
   const [deleting, setDeleting] = React.useState(false);
 
-  React.useEffect(() => {
-    setSprints(listSprints(projectId));
+  const load = React.useCallback(async () => {
+    try {
+      const data = await fetchSprints({ projectId });
+      setSprints(data);
+    } catch {
+      toast.destructive("No se pudieron cargar sprints");
+    }
   }, [projectId]);
+
+  React.useEffect(() => {
+    load();
+  }, [load]);
 
   const onCreate = () => {
     setEditing(null);
@@ -48,20 +57,18 @@ export default function ProjectSprintsPage() {
     toast.success(editing ? "Actualizado" : "Se creó correctamente");
     setOpen(false);
     setEditing(null);
-    setSprints(listSprints(projectId));
+    load();
   };
 
   const onDelete = async () => {
     if (!pendingDelete) return;
     setDeleting(true);
     try {
-      const ok = deleteSprint(pendingDelete.id);
-      if (ok) {
-        toast.destructive("Eliminado", `${pendingDelete.name} se eliminó correctamente`);
-        setSprints(listSprints(projectId));
-      } else {
-        toast.destructive("No se pudo eliminar");
-      }
+      await deleteSprint(pendingDelete.id);
+      toast.destructive("Eliminado", `${pendingDelete.name} se eliminó correctamente`);
+      await load();
+    } catch {
+      toast.destructive("No se pudo eliminar");
     } finally {
       setDeleting(false);
       setPendingDelete(null);

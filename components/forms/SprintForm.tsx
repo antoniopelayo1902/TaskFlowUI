@@ -4,8 +4,8 @@ import * as React from "react";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import type { Sprint } from "@/services/mock/sprints.service";
-import { createSprint, updateSprint } from "@/services/mock/sprints.service";
+import type { Sprint } from "@/services/api/sprints.service";
+import { createSprint, updateSprint } from "@/services/api/sprints.service";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/lib/toast";
 
@@ -66,10 +66,10 @@ export default function SprintForm({
     try {
       let saved: Sprint | undefined;
       if (initial) {
-        saved = updateSprint(initial.id, values) as Sprint | undefined;
+        saved = await updateSprint(initial.id, values);
         toast.info("Actualizado", "Sprint actualizado correctamente");
       } else {
-        saved = createSprint(values as Omit<Sprint, "id">);
+        saved = await createSprint(values as Omit<Sprint, "id">);
         toast.success("Se creó correctamente");
       }
       if (saved) onSaved?.(saved);

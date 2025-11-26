@@ -4,14 +4,14 @@ import * as React from "react";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import type { Task } from "@/services/mock/tasks.service";
+import type { Task } from "@/services/api/tasks.service";
 import {
   createTask,
   updateTask,
   listStatuses,
   listPriorities,
-} from "@/services/mock/tasks.service";
-import { users } from "@/services/mock/users.service";
+} from "@/services/api/tasks.service";
+import { fetchUsers, type SimpleUser } from "@/services/api/users-public.service";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/lib/toast";
 
@@ -65,7 +65,21 @@ export default function TaskForm({
         },
   });
 
+  const [users, setUsers] = React.useState<SimpleUser[]>([]);
   const [saving, setSaving] = React.useState(false);
+
+  React.useEffect(() => {
+    let mounted = true;
+    fetchUsers()
+      .then((us) => {
+        if (!mounted) return;
+        setUsers(us);
+      })
+      .catch(() => {});
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const onSubmit = async (values: FormValues) => {
     setSaving(true);
@@ -79,10 +93,10 @@ export default function TaskForm({
       };
       let saved: Task | undefined;
       if (initial) {
-        saved = updateTask(initial.id, payload) as Task | undefined;
+        saved = await updateTask(initial.id, payload);
         toast.info("Actualizado", "Tarea actualizada correctamente");
       } else {
-        saved = createTask(payload as Omit<Task, "id">);
+        saved = await createTask(payload as Omit<Task, "id">);
         toast.success("Se creó correctamente");
       }
       if (saved) onSaved?.(saved);
@@ -197,9 +211,6 @@ export default function TaskForm({
           {saving ? "Guardando..." : initial ? "Actualizar" : "Crear"}
         </Button>
       </div>
-      <p className="text-xs text-muted-foreground">
-        Nota: Este formulario es mock; no hay API real.
-      </p>
     </form>
   );
 }

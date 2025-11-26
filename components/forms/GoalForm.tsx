@@ -4,9 +4,9 @@ import * as React from "react";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import type { Goal } from "@/services/mock/goals.service";
-import { createGoal, updateGoal } from "@/services/mock/goals.service";
-import { listProjects } from "@/services/mock/projects.service";
+import type { Goal } from "@/services/api/goals.service";
+import { createGoal, updateGoal } from "@/services/api/goals.service";
+import { fetchProjects, type Project } from "@/services/api/projects.service";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/lib/toast";
 
@@ -25,16 +25,35 @@ export default function GoalForm({
   initial?: Goal | null;
   onSaved?: (goal: Goal) => void;
 }) {
-  const projects = listProjects();
+  const [projects, setProjects] = React.useState<Project[]>([]);
 
   const form = useForm<FormInput>({
     resolver: zodResolver(schema),
     defaultValues: initial
       ? { title: initial.title, progress: initial.progress, projectId: initial.projectId }
-      : { title: "", progress: 0, projectId: projects[0]?.id },
+      : { title: "", progress: 0, projectId: "" },
   });
 
   const [saving, setSaving] = React.useState(false);
+
+  React.useEffect(() => {
+    let mounted = true;
+    fetchProjects()
+      .then((ps) => {
+        if (!mounted) return;
+        setProjects(ps);
+        // If creating and no project selected, pick the first available
+        if (!initial && ps.length > 0) {
+          form.setValue("projectId", ps[0].id, { shouldDirty: true });
+        }
+      })
+      .catch(() => {
+        // ignore
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [initial, form]);
 
   const onSubmit = async (values: FormInput) => {
     setSaving(true);
@@ -48,10 +67,10 @@ export default function GoalForm({
       };
       let saved: Goal | undefined;
       if (initial) {
-        saved = updateGoal(initial.id, payload) as Goal | undefined;
+        saved = await updateGoal(initial.id, payload);
         toast.info("Actualizado", "Objetivo actualizado correctamente");
       } else {
-        saved = createGoal(payload as Omit<Goal, "id">);
+        saved = await createGoal(payload as Omit<Goal, "id">);
         toast.success("Se creó correctamente");
       }
       if (saved) onSaved?.(saved);

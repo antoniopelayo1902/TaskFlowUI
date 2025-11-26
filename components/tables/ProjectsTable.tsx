@@ -1,8 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { listProjects, type Project, deleteProject } from "@/services/mock/projects.service";
-import { getOwner, getMembers } from "@/services/mock/projects.service";
+import { fetchProjects, deleteProject, type Project } from "@/services/api/projects.service";
+import { fetchUsers, type SimpleUser } from "@/services/api/users-public.service";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
 import EmptyState from "@/components/common/EmptyState";
 import { Button } from "@/components/ui/button";
@@ -12,10 +12,12 @@ import Link from "next/link";
 type Props = {
   onCreate?: () => void;
   onEdit?: (project: Project) => void;
+  refreshAt?: number;
 };
 
-export default function ProjectsTable({ onCreate, onEdit }: Props) {
+export default function ProjectsTable({ onCreate, onEdit, refreshAt }: Props) {
   const [projects, setProjects] = React.useState<Project[]>([]);
+  const [users, setUsers] = React.useState<SimpleUser[]>([]);
   const [q, setQ] = React.useState("");
   const [page, setPage] = React.useState(1);
   const pageSize = 5;
@@ -23,9 +25,19 @@ export default function ProjectsTable({ onCreate, onEdit }: Props) {
   const [pendingDelete, setPendingDelete] = React.useState<Project | null>(null);
   const [deleting, setDeleting] = React.useState(false);
 
-  React.useEffect(() => {
-    setProjects(listProjects());
+  const load = React.useCallback(async () => {
+    try {
+      const [ps, us] = await Promise.all([fetchProjects(), fetchUsers()]);
+      setProjects(ps);
+      setUsers(us);
+    } catch {
+      toast.destructive("No se pudieron cargar proyectos");
+    }
   }, []);
+
+  React.useEffect(() => {
+    load();
+  }, [load, refreshAt]);
 
   const filtered = React.useMemo(() => {
     const term = q.trim().toLowerCase();
@@ -46,13 +58,11 @@ export default function ProjectsTable({ onCreate, onEdit }: Props) {
     if (!pendingDelete) return;
     setDeleting(true);
     try {
-      const ok = deleteProject(pendingDelete.id);
-      if (ok) {
-        setProjects(listProjects());
-        toast.destructive("Eliminado", `${pendingDelete.name} se eliminó correctamente`);
-      } else {
-        toast.destructive("No se pudo eliminar");
-      }
+      await deleteProject(pendingDelete.id);
+      await load();
+      toast.destructive("Eliminado", `${pendingDelete.name} se eliminó correctamente`);
+    } catch {
+      toast.destructive("No se pudo eliminar");
     } finally {
       setDeleting(false);
       setPendingDelete(null);
@@ -88,7 +98,7 @@ export default function ProjectsTable({ onCreate, onEdit }: Props) {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => setProjects(listProjects())}>
+          <Button variant="outline" onClick={() => load()}>
             Refrescar
           </Button>
           <Button onClick={onCreate}>Crear</Button>
@@ -108,8 +118,8 @@ export default function ProjectsTable({ onCreate, onEdit }: Props) {
           </thead>
           <tbody>
             {current.map((p) => {
-              const owner = getOwner(p);
-              const members = getMembers(p);
+              const owner = users.find((u) => u.id === p.ownerId);
+              const members = users.filter((u) => p.members.includes(u.id));
               return (
                 <tr key={p.id} className="border-t">
                   <td className="px-3 py-2">
