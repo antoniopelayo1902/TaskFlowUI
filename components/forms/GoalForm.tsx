@@ -42,13 +42,12 @@ export default function GoalForm({
       .then((ps) => {
         if (!mounted) return;
         setProjects(ps);
-        // If creating and no project selected, pick the first available
         if (!initial && ps.length > 0) {
           form.setValue("projectId", ps[0].id, { shouldDirty: true });
         }
       })
       .catch(() => {
-        // ignore
+
       });
     return () => {
       mounted = false;

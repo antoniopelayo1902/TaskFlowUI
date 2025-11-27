@@ -2,9 +2,7 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { User } from "@/models/User";
 
-// GET /api/users
-// Lista pública de usuarios (solo campos seguros) para poblar selects y etiquetas en UI.
-// Nota: No requiere token; si necesitas restringir, añade verificación JWT aquí.
+
 export async function GET() {
   await connectDB();
 

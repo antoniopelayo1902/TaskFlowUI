@@ -24,13 +24,13 @@ function requireAuth(req: Request): JwtPayload | null {
   }
 }
 
-// ------------------- GET: obtener un proyecto -------------------
+// GET: obtener un proyecto
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   await connectDB();
-  const { id } = await params; // 👈 AQUÍ EL await
+  const { id } = await params;
 
   const doc = await Project.findById(id);
   if (!doc) {
@@ -54,7 +54,7 @@ export async function GET(
   );
 }
 
-// ------------------- PUT: editar un proyecto -------------------
+// PUT: editar un proyecto 
 export async function PUT(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -69,7 +69,7 @@ export async function PUT(
     );
   }
 
-  const { id } = await params; // 👈 AQUÍ EL await
+  const { id } = await params; 
 
   try {
     const patch = await req.json();
@@ -100,7 +100,6 @@ export async function PUT(
       );
     }
 
-    // opcional: notificación por sockets
     try {
       const io = getIO();
       io.emit("activity:new", {
@@ -135,7 +134,7 @@ export async function PUT(
   }
 }
 
-// ------------------- DELETE: eliminar un proyecto -------------------
+// DELETE: eliminar un proyecto 
 export async function DELETE(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -150,7 +149,7 @@ export async function DELETE(
     );
   }
 
-  const { id } = await params; // 👈 AQUÍ EL await
+  const { id } = await params; 
 
   try {
     const deleted = await Project.findByIdAndDelete(id);
@@ -162,7 +161,7 @@ export async function DELETE(
       );
     }
 
-    // opcional: notificación por sockets
+    // notificación por sockets
     try {
       const io = getIO();
       io.emit("activity:new", {

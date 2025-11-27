@@ -34,11 +34,11 @@ export default function FilesTabClient({ projectId }: { projectId: string }) {
   const [isUploading, setIsUploading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  // para el modal de confirmación
+  // modal de confirmación
   const [fileToDelete, setFileToDelete] = useState<ProjectFile | null>(null);
   const dialogOpen = !!fileToDelete;
 
-  // ---------- Cargar lista ----------
+  // Cargar lista
   async function loadFiles() {
     if (!projectId) return;
 
@@ -61,7 +61,7 @@ export default function FilesTabClient({ projectId }: { projectId: string }) {
     loadFiles();
   }, [projectId]);
 
-  // ---------- Drag & Drop ----------
+  // Drag & Drop
   function handleDragOver(e: DragEvent<HTMLDivElement>) {
     e.preventDefault();
     setIsDragging(true);
@@ -84,7 +84,7 @@ export default function FilesTabClient({ projectId }: { projectId: string }) {
     setSelectedFile(file ?? null);
   }
 
-  // ---------- Subir ----------
+  //  Subir
   async function handleUpload(e: MouseEvent<HTMLButtonElement>) {
     e.preventDefault();
     if (!selectedFile) {
@@ -115,7 +115,7 @@ export default function FilesTabClient({ projectId }: { projectId: string }) {
     }
   }
 
-  // ---------- Eliminar (solo hace el DELETE; la confirmación la maneja el modal) ----------
+  // Eliminar
   async function handleDeleteConfirmed(fileId: string) {
     setDeletingId(fileId);
     try {
@@ -137,10 +137,9 @@ export default function FilesTabClient({ projectId }: { projectId: string }) {
     }
   }
 
-  // ---------- Render ----------
+  // Render
   return (
     <div className="space-y-6">
-      {/* ZONA DE SUBIDA */}
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Archivos del proyecto</h2>
 
@@ -194,7 +193,6 @@ export default function FilesTabClient({ projectId }: { projectId: string }) {
         </div>
       </section>
 
-      {/* LISTA */}
       <section className="space-y-3">
         <h3 className="text-base font-semibold">Lista de archivos</h3>
 
@@ -236,7 +234,6 @@ export default function FilesTabClient({ projectId }: { projectId: string }) {
         )}
       </section>
 
-      {/* MODAL DE CONFIRMACIÓN */}
       <Dialog
         open={dialogOpen}
         onOpenChange={(open) => {

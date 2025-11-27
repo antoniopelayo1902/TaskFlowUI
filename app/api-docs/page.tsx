@@ -4,11 +4,10 @@ import dynamic from "next/dynamic";
 import React from "react";
 import "swagger-ui-react/swagger-ui.css";
 
-// Carga dinámica para evitar SSR en Swagger UI
+
 const SwaggerUI = dynamic(() => import("swagger-ui-react"), { ssr: false });
 
 export default function ApiDocsPage() {
-  // Usamos ruta relativa; sirve el spec desde /api/docs/openapi
   const url = "/api/docs/openapi";
 
   return (

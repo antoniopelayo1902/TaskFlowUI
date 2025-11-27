@@ -4,14 +4,13 @@ import { connectDB } from "@/lib/db";
 import { FileModel } from "@/models/File";
 import { uploadToS3 } from "@/lib/s3";
 
-// ---------- GET: lista de archivos ----------
+// GET: lista de archivos
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   await connectDB();
 
-  // 👇 en Next 16 params es un Promise
   const { id } = await params;
 
   try {
@@ -38,14 +37,14 @@ export async function GET(
   }
 }
 
-// ---------- POST: subir archivo ----------
+// POST: subir archivo
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   await connectDB();
 
-  // 👇 igual, desempaquetamos el Promise
+
   const { id: projectId } = await params;
 
   try {
@@ -73,15 +72,13 @@ export async function POST(
       contentType: fileEntry.type || "application/octet-stream",
     });
 
-    // 🔹 Sin auth para que no dé 401 (como cuando sí te funcionaba)
-    // reutilizamos el projectId para uploadedBy solo para cumplir el schema
     const doc = await FileModel.create({
       projectId,
       key,
       url,
       originalName: fileEntry.name,
       size: fileEntry.size,
-      uploadedBy: projectId, // solo para satisfacer el required
+      uploadedBy: projectId, 
     });
 
     return NextResponse.json(

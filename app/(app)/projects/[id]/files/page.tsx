@@ -1,4 +1,3 @@
-// app/(app)/projects/[id]/files/page.tsx
 import FilesTabClient from "./FilesTabClient";
 
 type PageProps = {

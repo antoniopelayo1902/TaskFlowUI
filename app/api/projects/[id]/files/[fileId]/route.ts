@@ -1,4 +1,3 @@
-// app/api/projects/[id]/files/[fileId]/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { FileModel } from "@/models/File";
@@ -21,15 +20,14 @@ export async function DELETE(
       );
     }
 
-    // 1) borrar de S3
+    // borrar de S3
     try {
       await deleteFromS3(fileDoc.key);
     } catch (err) {
       console.error("Error borrando de S3:", err);
-      // seguimos, pero lo registramos
     }
 
-    // 2) borrar de Mongo
+    // borrar de Mongo
     await fileDoc.deleteOne();
 
     return NextResponse.json({ message: "Archivo eliminado" }, { status: 200 });
