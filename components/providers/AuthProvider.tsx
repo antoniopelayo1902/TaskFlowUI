@@ -2,7 +2,6 @@
 
 import React, { createContext, useContext, useEffect, useState } from "react";
 import type { User } from "@/lib/roles";
-import type { Role } from "@/lib/roles";
 import { useRouter } from "next/navigation";
 import { toast } from "@/lib/toast";
 import {
@@ -15,6 +14,7 @@ import {
 
 type AuthContextType = {
   user: User | null;
+  token: string | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
@@ -26,15 +26,28 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
-    setLoading(false);
+    try {
+      const saved = getAuthToken();
+      if (saved) {
+        setToken(saved);
+      }
+    } catch (e) {
+      console.error("Error leyendo token almacenado:", e);
+      setAuthToken(null);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const commonLoginFlow = (u: User) => {
+  const commonLoginFlow = (u: User, t: string) => {
     setUser(u);
+    setToken(t);
+    setAuthToken(t); 
     toast.success("Sesión iniciada");
     router.push("/dashboard");
   };
@@ -42,8 +55,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (email: string, password: string) => {
     setLoading(true);
     try {
-      const { user } = await loginWithCredentials(email, password);
-      commonLoginFlow(user);
+      const { user, token } = await loginWithCredentials(email, password);
+      commonLoginFlow(user, token);
     } catch (err) {
       console.error(err);
       toast.destructive("Credenciales inválidas");
@@ -56,8 +69,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const register = async (name: string, email: string, password: string) => {
     setLoading(true);
     try {
-      const { user } = await registerAccount(name, email, password);
-      commonLoginFlow(user);
+      const { user, token } = await registerAccount(name, email, password);
+      commonLoginFlow(user, token);
     } catch (err) {
       console.error(err);
       toast.destructive("No se pudo registrar la cuenta");
@@ -70,8 +83,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const loginWithGoogle = async (code: string) => {
     setLoading(true);
     try {
-      const { user } = await loginWithGoogleAuthCode(code);
-      commonLoginFlow(user);
+      const { user, token } = await loginWithGoogleAuthCode(code);
+      commonLoginFlow(user, token);
     } catch (err) {
       console.error(err);
       toast.destructive("No fue posible iniciar sesión con Google");
@@ -86,6 +99,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setAuthToken(null);
       setUser(null);
+      setToken(null);
       toast.info("Sesión cerrada");
       router.push("/login");
     } finally {
@@ -95,7 +109,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, loading, login, register, loginWithGoogle, logout }}
+      value={{
+        user,
+        token,
+        loading,
+        login,
+        register,
+        loginWithGoogle,
+        logout,
+      }}
     >
       {children}
     </AuthContext.Provider>
