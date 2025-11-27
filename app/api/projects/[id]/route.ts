@@ -1,42 +1,186 @@
-// app/api/projects/[id]/files/[fileId]/route.ts
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
-import { FileModel } from "@/models/File";   // 👈 IMPORT CORRECTO
-import { deleteFromS3 } from "@/lib/s3";
+import { Project } from "@/models/Project";
+import { verifyUserToken } from "@/lib/jwt";
+import { getIO } from "@/lib/socket-server";
 
-export async function DELETE(
+type JwtPayload = {
+  sub: string;
+  email: string;
+  role: "admin" | "manager" | "developer";
+  iat: number;
+  exp: number;
+};
+
+function requireAuth(req: Request): JwtPayload | null {
+  const auth = req.headers.get("authorization");
+  if (!auth || !auth.startsWith("Bearer ")) return null;
+  const token = auth.slice("Bearer ".length);
+
+  try {
+    return verifyUserToken(token) as JwtPayload;
+  } catch {
+    return null;
+  }
+}
+
+// ------------------- GET: obtener un proyecto -------------------
+export async function GET(
   _req: Request,
-  { params }: { params: { id: string; fileId: string } } // 👈 SIN Promise
+  { params }: { params: Promise<{ id: string }> }
+) {
+  await connectDB();
+  const { id } = await params; // 👈 AQUÍ EL await
+
+  const doc = await Project.findById(id);
+  if (!doc) {
+    return NextResponse.json(
+      { message: "Proyecto no encontrado" },
+      { status: 404 }
+    );
+  }
+
+  return NextResponse.json(
+    {
+      project: {
+        id: (doc as any)._id.toString(),
+        name: doc.name,
+        key: doc.key,
+        ownerId: doc.ownerId,
+        members: doc.members ?? [],
+      },
+    },
+    { status: 200 }
+  );
+}
+
+// ------------------- PUT: editar un proyecto -------------------
+export async function PUT(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   await connectDB();
 
-  const { fileId } = params;
+  const user = requireAuth(req);
+  if (!user) {
+    return NextResponse.json(
+      { message: "No autorizado" },
+      { status: 401 }
+    );
+  }
+
+  const { id } = await params; // 👈 AQUÍ EL await
 
   try {
-    // Buscar el documento del archivo
-    const fileDoc = await FileModel.findById(fileId);
-    if (!fileDoc) {
+    const patch = await req.json();
+
+    const allowed: Record<string, any> = {};
+    if (typeof patch.name === "string") {
+      allowed.name = patch.name.trim();
+    }
+    if (typeof patch.key === "string") {
+      allowed.key = String(patch.key).toUpperCase();
+    }
+    if (typeof patch.ownerId === "string") {
+      allowed.ownerId = String(patch.ownerId);
+    }
+    if (Array.isArray(patch.members)) {
+      allowed.members = patch.members.map(String);
+    }
+
+    const updated = await Project.findByIdAndUpdate(id, allowed, {
+      new: true,
+      runValidators: true,
+    });
+
+    if (!updated) {
       return NextResponse.json(
-        { message: "Archivo no encontrado" },
+        { message: "Proyecto no encontrado" },
         { status: 404 }
       );
     }
 
-    // 1) Borrar de S3 (si falla, solo se loguea el error)
+    // opcional: notificación por sockets
     try {
-      await deleteFromS3(fileDoc.key);
-    } catch (err) {
-      console.error("Error borrando de S3:", err);
+      const io = getIO();
+      io.emit("activity:new", {
+        userId: user.sub,
+        msg: `Project updated: ${String(updated.name)} [${String(
+          updated.key
+        )}]`,
+        ts: Date.now(),
+      });
+    } catch (e) {
+      console.error("socket emit error (project:updated):", e);
     }
 
-    // 2) Borrar el documento en Mongo
-    await fileDoc.deleteOne();
+    return NextResponse.json(
+      {
+        project: {
+          id: (updated as any)._id.toString(),
+          name: updated.name,
+          key: updated.key,
+          ownerId: updated.ownerId,
+          members: updated.members ?? [],
+        },
+      },
+      { status: 200 }
+    );
+  } catch (err) {
+    console.error("Error actualizando proyecto:", err);
+    return NextResponse.json(
+      { message: "Error interno al actualizar proyecto" },
+      { status: 500 }
+    );
+  }
+}
+
+// ------------------- DELETE: eliminar un proyecto -------------------
+export async function DELETE(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  await connectDB();
+
+  const user = requireAuth(req);
+  if (!user) {
+    return NextResponse.json(
+      { message: "No autorizado" },
+      { status: 401 }
+    );
+  }
+
+  const { id } = await params; // 👈 AQUÍ EL await
+
+  try {
+    const deleted = await Project.findByIdAndDelete(id);
+
+    if (!deleted) {
+      return NextResponse.json(
+        { message: "Proyecto no encontrado" },
+        { status: 404 }
+      );
+    }
+
+    // opcional: notificación por sockets
+    try {
+      const io = getIO();
+      io.emit("activity:new", {
+        userId: user.sub,
+        msg: `Project deleted: ${String(
+          (deleted as any)?.name || ""
+        )} [${String((deleted as any)?.key || "")}]`,
+        ts: Date.now(),
+      });
+    } catch (e) {
+      console.error("socket emit error (project:deleted):", e);
+    }
 
     return NextResponse.json({ ok: true }, { status: 200 });
   } catch (err) {
-    console.error("Error eliminando archivo:", err);
+    console.error("Error eliminando proyecto:", err);
     return NextResponse.json(
-      { message: "Error eliminando archivo" },
+      { message: "Error interno al eliminar proyecto" },
       { status: 500 }
     );
   }
