@@ -9,6 +9,14 @@ import {
 } from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 interface ProjectFile {
   _id: string;
@@ -19,19 +27,21 @@ interface ProjectFile {
   createdAt: string;
 }
 
-export default function FilesTabClient({
-  projectId,
-}: {
-  projectId: string;
-}) {
+export default function FilesTabClient({ projectId }: { projectId: string }) {
   const [files, setFiles] = useState<ProjectFile[]>([]);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  // para el modal de confirmación
+  const [fileToDelete, setFileToDelete] = useState<ProjectFile | null>(null);
+  const dialogOpen = !!fileToDelete;
+
   // ---------- Cargar lista ----------
   async function loadFiles() {
+    if (!projectId) return;
+
     try {
       const res = await fetch(`/api/projects/${projectId}/files`, {
         cache: "no-store",
@@ -48,7 +58,6 @@ export default function FilesTabClient({
   }
 
   useEffect(() => {
-    if (!projectId) return;
     loadFiles();
   }, [projectId]);
 
@@ -106,11 +115,8 @@ export default function FilesTabClient({
     }
   }
 
-  // ---------- Eliminar (confirm nativo) ----------
-  async function handleDelete(fileId: string) {
-    const ok = window.confirm("¿Seguro que deseas eliminar este archivo?");
-    if (!ok) return;
-
+  // ---------- Eliminar (solo hace el DELETE; la confirmación la maneja el modal) ----------
+  async function handleDeleteConfirmed(fileId: string) {
     setDeletingId(fileId);
     try {
       const res = await fetch(
@@ -127,6 +133,7 @@ export default function FilesTabClient({
       toast.error("No se pudo eliminar el archivo.");
     } finally {
       setDeletingId(null);
+      setFileToDelete(null);
     }
   }
 
@@ -140,7 +147,9 @@ export default function FilesTabClient({
         <div
           className={[
             "flex flex-col items-center justify-center rounded-md border border-dashed px-6 py-10 text-center transition",
-            isDragging ? "border-primary bg-muted/50" : "border-muted-foreground/40",
+            isDragging
+              ? "border-primary bg-muted/50"
+              : "border-muted-foreground/40",
           ].join(" ")}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
@@ -216,8 +225,8 @@ export default function FilesTabClient({
                 <Button
                   variant="destructive"
                   size="sm"
-                  onClick={() => handleDelete(file._id)}
                   disabled={deletingId === file._id}
+                  onClick={() => setFileToDelete(file)}
                 >
                   {deletingId === file._id ? "Eliminando..." : "Eliminar"}
                 </Button>
@@ -226,6 +235,45 @@ export default function FilesTabClient({
           </ul>
         )}
       </section>
+
+      {/* MODAL DE CONFIRMACIÓN */}
+      <Dialog
+        open={dialogOpen}
+        onOpenChange={(open) => {
+          if (!open) setFileToDelete(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>¿Eliminar archivo?</DialogTitle>
+            <DialogDescription>
+              Se eliminará{" "}
+              <span className="font-medium">
+                {fileToDelete?.originalName}
+              </span>{" "}
+              Esta acción no se puede deshacer.
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setFileToDelete(null)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={!fileToDelete}
+              onClick={() =>
+                fileToDelete && handleDeleteConfirmed(fileToDelete._id)
+              }
+            >
+              Eliminar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
