@@ -16,10 +16,9 @@ export function useSocket() {
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Helper to safely call socket methods
   const get = () => socketRef.current;
 
-  // Emit wrapper
+
   const emit = useCallback(
     <E extends keyof ClientToServerEvents>(
       event: E,
@@ -67,7 +66,7 @@ export function useSocket() {
     async function init() {
       try {
         setError(null);
-        // Warm-up route to lazy-init server (idempotente)
+
         await fetch("/api/socket", { cache: "no-store" }).catch(() => {});
 
         const token = getAuthToken();

@@ -16,6 +16,7 @@ function requireAuth(req: Request): JwtPayload | null {
   const auth = req.headers.get("authorization");
   if (!auth || !auth.startsWith("Bearer ")) return null;
   const token = auth.slice("Bearer ".length);
+
   try {
     return verifyUserToken(token) as JwtPayload;
   } catch {
@@ -23,6 +24,7 @@ function requireAuth(req: Request): JwtPayload | null {
   }
 }
 
+// GET: obtener un proyecto
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -32,7 +34,10 @@ export async function GET(
 
   const doc = await Project.findById(id);
   if (!doc) {
-    return NextResponse.json({ message: "Proyecto no encontrado" }, { status: 404 });
+    return NextResponse.json(
+      { message: "Proyecto no encontrado" },
+      { status: 404 }
+    );
   }
 
   return NextResponse.json(
@@ -49,6 +54,7 @@ export async function GET(
   );
 }
 
+// PUT: editar un proyecto 
 export async function PUT(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -57,18 +63,30 @@ export async function PUT(
 
   const user = requireAuth(req);
   if (!user) {
-    return NextResponse.json({ message: "No autorizado" }, { status: 401 });
+    return NextResponse.json(
+      { message: "No autorizado" },
+      { status: 401 }
+    );
   }
 
+  const { id } = await params; 
+
   try {
-    const { id } = await params;
     const patch = await req.json();
 
     const allowed: Record<string, any> = {};
-    if (typeof patch.name === "string") allowed.name = patch.name.trim();
-    if (typeof patch.key === "string") allowed.key = String(patch.key).toUpperCase();
-    if (typeof patch.ownerId === "string") allowed.ownerId = String(patch.ownerId);
-    if (Array.isArray(patch.members)) allowed.members = patch.members.map(String);
+    if (typeof patch.name === "string") {
+      allowed.name = patch.name.trim();
+    }
+    if (typeof patch.key === "string") {
+      allowed.key = String(patch.key).toUpperCase();
+    }
+    if (typeof patch.ownerId === "string") {
+      allowed.ownerId = String(patch.ownerId);
+    }
+    if (Array.isArray(patch.members)) {
+      allowed.members = patch.members.map(String);
+    }
 
     const updated = await Project.findByIdAndUpdate(id, allowed, {
       new: true,
@@ -76,15 +94,19 @@ export async function PUT(
     });
 
     if (!updated) {
-      return NextResponse.json({ message: "Proyecto no encontrado" }, { status: 404 });
+      return NextResponse.json(
+        { message: "Proyecto no encontrado" },
+        { status: 404 }
+      );
     }
 
-    // Realtime: activity feed for project update
     try {
       const io = getIO();
       io.emit("activity:new", {
         userId: user.sub,
-        msg: `Project updated: ${String(updated.name)} [${String(updated.key)}]`,
+        msg: `Project updated: ${String(updated.name)} [${String(
+          updated.key
+        )}]`,
         ts: Date.now(),
       });
     } catch (e) {
@@ -112,6 +134,7 @@ export async function PUT(
   }
 }
 
+// DELETE: eliminar un proyecto 
 export async function DELETE(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -120,23 +143,32 @@ export async function DELETE(
 
   const user = requireAuth(req);
   if (!user) {
-    return NextResponse.json({ message: "No autorizado" }, { status: 401 });
+    return NextResponse.json(
+      { message: "No autorizado" },
+      { status: 401 }
+    );
   }
 
+  const { id } = await params; 
+
   try {
-    const { id } = await params;
     const deleted = await Project.findByIdAndDelete(id);
 
     if (!deleted) {
-      return NextResponse.json({ message: "Proyecto no encontrado" }, { status: 404 });
+      return NextResponse.json(
+        { message: "Proyecto no encontrado" },
+        { status: 404 }
+      );
     }
 
-    // Realtime: activity feed for project delete
+    // notificación por sockets
     try {
       const io = getIO();
       io.emit("activity:new", {
         userId: user.sub,
-        msg: `Project deleted: ${String((deleted as any)?.name || "")} [${String((deleted as any)?.key || "")}]`,
+        msg: `Project deleted: ${String(
+          (deleted as any)?.name || ""
+        )} [${String((deleted as any)?.key || "")}]`,
         ts: Date.now(),
       });
     } catch (e) {

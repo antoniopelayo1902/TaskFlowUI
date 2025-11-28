@@ -63,7 +63,6 @@ export async function POST(req: Request) {
       members: Array.isArray(members) ? members.map(String) : [],
     });
 
-    // Realtime: global activity feed on project creation
     try {
       const io = getIO();
       io.emit("activity:new", {

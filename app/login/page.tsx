@@ -21,17 +21,14 @@ export default function LoginPage() {
         </header>
 
         <div className="mx-auto max-w-md space-y-6">
-          {/* Formulario de credenciales (correo / contraseña) */}
           <AuthCard mode="login" />
 
-          {/* Separador visual */}
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <div className="h-px flex-1 bg-border" />
             <span>o continúa con</span>
             <div className="h-px flex-1 bg-border" />
           </div>
 
-          {/* Botón de inicio de sesión con Google */}
           <GoogleButton />
         </div>
 
