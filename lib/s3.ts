@@ -9,11 +9,11 @@ const region = process.env.AWS_REGION;
 const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
 const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
 
-if (!bucket) throw new Error("❌ Falta AWS_S3_BUCKET en .env");
-if (!region) throw new Error("❌ Falta AWS_REGION en .env");
-if (!accessKeyId) throw new Error("❌ Falta AWS_ACCESS_KEY_ID en .env");
+if (!bucket) throw new Error("Falta AWS_S3_BUCKET en .env");
+if (!region) throw new Error("Falta AWS_REGION en .env");
+if (!accessKeyId) throw new Error("Falta AWS_ACCESS_KEY_ID en .env");
 if (!secretAccessKey)
-  throw new Error("❌ Falta AWS_SECRET_ACCESS_KEY en .env");
+  throw new Error("Falta AWS_SECRET_ACCESS_KEY en .env");
 
 export const s3 = new S3Client({
   region,
