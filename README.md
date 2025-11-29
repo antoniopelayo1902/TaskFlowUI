@@ -145,6 +145,54 @@ Cómo probar (UI)
 5) Goals:
    - /goals → CRUD real.
 
+Pruebas automatizadas (unitarias y E2E)
+- Stack de unitarias: Vitest + @testing-library/react + @testing-library/user-event
+  - Entorno: `happy-dom` (evita conflictos ESM parse5/jsdom)
+  - Setup global: `test/setup.ts` (jest-dom, cleanup, mocks de next/navigation y toast)
+  - Ubicación de tests: `test/unit/**`
+  - Ejecutar:
+    - Todas: `npm run test`
+    - Watch: `npm run test:watch`
+    - UI de Vitest: `npm run test:ui`
+    - Cobertura: `npm run coverage` (abre `coverage/index.html`)
+
+- E2E con Cypress:
+  - Configuración: `cypress.config.ts` (baseUrl http://localhost:3000, specPattern `cypress/e2e/**/*.cy.ts`)
+  - Soporte: `cypress/support/e2e.ts` + `cypress/support/commands.ts` (incluye `@testing-library/cypress` y `cy.assertToast`)
+  - Especificaciones incluidas:
+    - `cypress/e2e/auth.cy.ts`
+      - Éxito: intercepta `POST /api/auth/login`, guarda token, redirige a `/dashboard`, muestra toast “Sesión iniciada”.
+      - Error: responde 401, permanece en `/login`, muestra toast “Credenciales inválidas” y no guarda token.
+    - `cypress/e2e/login_to_projects.cy.ts`
+      - Login exitoso y navegación al apartado “Proyectos”.
+      - Stub de `GET /api/users` y `GET /api/projects` para poblar la tabla.
+      - Verifica heading “Proyectos” y el link al proyecto simulado.
+  - Cómo correr:
+    1) Levanta la app: `npm run dev`
+    2) GUI (para “ver” los specs en Cypress): `npm run cy:open`
+       - Selecciona E2E Testing y el navegador; verás ambos specs listados (auth.cy.ts y login_to_projects.cy.ts).
+    3) Headless: `npm run e2e`
+       - Nota: en headless no verás la interfaz de Cypress; sólo el resultado en terminal.
+  - Tips:
+    - Si no ves un spec en la GUI, asegúrate de que esté bajo `cypress/e2e/` y termine en `.cy.ts` (coincide con `specPattern`).
+    - Si usas otro puerto, corre con: `CYPRESS_baseUrl=http://localhost:3001 npm run e2e`.
+
+Validaciones reactivas en formularios (zod + RHF)
+- AuthCard (components/forms/AuthCard.tsx)
+  - Login: email requerido + formato; password min 6.
+  - Registro: name requerido; email requerido + formato; password min 6.
+- ProjectForm (components/forms/ProjectForm.tsx)
+  - name requerido
+  - key requerido (min 2, max 6, regex mayúsculas/números). La UI fuerza uppercase al escribir.
+  - ownerId requerido
+  - members array de strings (opcional/por defecto [])
+- TaskForm (components/forms/TaskForm.tsx)
+  - title requerido
+  - status enum ["Todo","Doing","Done"] y priority enum ["High","Medium","Low"]
+  - points entero 0..100 (opcional)
+  - projectId requerido
+  - dueDate/description/tags opcionales
+
 Pruebas rápidas con curl (opcional)
 - Registrar usuario y obtener token:
   curl -s -X POST http://localhost:3000/api/auth/register \
@@ -166,6 +214,19 @@ Pruebas rápidas con curl (opcional)
     -d '{"name":"API Project v2"}'
   curl -s -X DELETE http://localhost:3000/api/projects/{id} \
     -H "Authorization: Bearer $TOKEN"
+
+Scripts disponibles
+- Desarrollo: `npm run dev`
+- Lint: `npm run lint`
+- Unit tests:
+  - `npm run test` (CI)
+  - `npm run test:watch`
+  - `npm run test:ui`
+  - `npm run coverage`
+- Cypress:
+  - `npm run cy:open` (GUI)
+  - `npm run cy:run` (headless)
+  - `npm run e2e` (alias a headless E2E)
 
 Seguridad
 - Token en localStorage por compatibilidad con UI actual. Recomendado migrar a cookie httpOnly + SameSite.
