@@ -7,6 +7,7 @@ import CalendarView from "@/components/calendar/CalendarView";
 import ConnectProviderBanner from "@/components/calendar/ConnectProviderBanner";
 import { toast } from "@/lib/toast";
 import { fetchProjects } from "@/services/api/projects.service";
+import { fetchGoals } from "@/services/api/goals.service";
 import type { CalendarEvent } from "@/components/calendar/CalendarView";
 
 type View = "month" | "week" | "day";
@@ -30,18 +31,24 @@ export default function CalendarPage() {
 
   React.useEffect(() => {
     let mounted = true;
-    fetchProjects()
-      .then((ps) => {
+    Promise.all([fetchProjects(), fetchGoals()])
+      .then(([ps, gs]) => {
         if (!mounted) return;
-        const evts: CalendarEvent[] = ps
+        const projectEvents: CalendarEvent[] = ps
           .filter((p) => !!p.dueDate)
           .map((p) => ({
-            // normalizamos a YYYY-MM-DD para evitar desfases por zona horaria
             date: (p.dueDate as string).slice(0, 10),
             title: `Proyecto: ${p.name}`,
             href: `/projects/${p.id}/kanban`,
           }));
-        setEvents(evts);
+        const goalEvents: CalendarEvent[] = gs
+          .filter((g) => !!g.dueDate)
+          .map((g) => ({
+            date: (g.dueDate as string).slice(0, 10),
+            title: `Meta: ${g.title}`,
+            href: `/goals`,
+          }));
+        setEvents([...projectEvents, ...goalEvents]);
       })
       .catch(() => {});
     return () => {

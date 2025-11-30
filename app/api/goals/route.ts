@@ -47,6 +47,7 @@ export async function GET(req: Request) {
     progress: typeof d.progress === "number" ? (d.progress as number) : 0,
     projectId: typeof d.projectId === "string" ? (d.projectId as string) : undefined,
     ownerId: typeof d.ownerId === "string" ? (d.ownerId as string) : undefined,
+    dueDate: d.dueDate ? new Date(d.dueDate as any).toISOString() : undefined,
   }));
 
   return NextResponse.json({ goals }, { status: 200 });
@@ -63,7 +64,7 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { title, progress, projectId } = body ?? {};
+    const { title, progress, projectId, dueDate } = body ?? {};
 
     if (!title) {
       return NextResponse.json(
@@ -87,11 +88,28 @@ export async function POST(req: Request) {
       projectIdStr = String(projectId);
     }
 
+    // Normalize dueDate similar to Projects (avoid TZ shifts)
+    let due: Date | undefined;
+    if (dueDate) {
+      let parsed: Date;
+      if (typeof dueDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(dueDate)) {
+        const [yy, mm, dd] = (dueDate as string).split("-").map(Number);
+        parsed = new Date(Date.UTC(yy, (mm as number) - 1, dd as number, 12, 0, 0));
+      } else {
+        parsed = new Date(dueDate);
+      }
+      if (isNaN(parsed.getTime())) {
+        return NextResponse.json({ message: "Fecha de entrega inválida" }, { status: 400 });
+      }
+      due = parsed;
+    }
+
     const doc = await Goal.create({
       title: String(title).trim(),
       progress: value,
-      projectId: projectIdStr,
+      projectId: projectId ? String(projectId) : undefined,
       ownerId: user.sub,
+      dueDate: due,
     });
 
     // Realtime: activity feed for goal creation
@@ -114,6 +132,7 @@ export async function POST(req: Request) {
           progress: doc.progress,
           projectId: doc.projectId,
           ownerId: doc.ownerId,
+          dueDate: doc.dueDate ? new Date(doc.dueDate as any).toISOString() : undefined,
         },
       },
       { status: 201 }
