@@ -112,14 +112,12 @@ export default function ProjectsTable({ onCreate, onEdit, refreshAt }: Props) {
               <th className="px-3 py-2 font-medium">Proyecto</th>
               <th className="px-3 py-2 font-medium">Clave</th>
               <th className="px-3 py-2 font-medium">Owner</th>
-              <th className="px-3 py-2 font-medium">Miembros</th>
               <th className="px-3 py-2 font-medium"></th>
             </tr>
           </thead>
           <tbody>
             {current.map((p) => {
               const owner = users.find((u) => u.id === p.ownerId);
-              const members = users.filter((u) => p.members.includes(u.id));
               return (
                 <tr key={p.id} className="border-t">
                   <td className="px-3 py-2">
@@ -129,20 +127,6 @@ export default function ProjectsTable({ onCreate, onEdit, refreshAt }: Props) {
                   </td>
                   <td className="px-3 py-2">{p.key}</td>
                   <td className="px-3 py-2">{owner ? owner.name : "-"}</td>
-                  <td className="px-3 py-2">
-                    <div className="flex flex-wrap gap-1">
-                      {members.slice(0, 3).map((m) => (
-                        <span key={m.id} className="rounded bg-muted px-2 py-0.5 text-xs">
-                          {m.name}
-                        </span>
-                      ))}
-                      {members.length > 3 && (
-                        <span className="text-xs text-muted-foreground">
-                          +{members.length - 3}
-                        </span>
-                      )}
-                    </div>
-                  </td>
                   <td className="px-3 py-2">
                     <div className="flex items-center gap-2">
                       <Button
@@ -166,7 +150,7 @@ export default function ProjectsTable({ onCreate, onEdit, refreshAt }: Props) {
             })}
             {!current.length && (
               <tr>
-                <td colSpan={5} className="px-3 py-8">
+                <td colSpan={4} className="px-3 py-8">
                   <EmptyState
                     title="Sin resultados"
                     description="Intenta limpiar filtros o crea un nuevo proyecto."

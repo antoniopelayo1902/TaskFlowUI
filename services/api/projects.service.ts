@@ -45,8 +45,15 @@ export async function fetchProject(id: string): Promise<Project> {
   return data.project as Project;
 }
 
+export type CreateProjectInput = {
+  name: string;
+  key: string;
+  dueDate?: string;
+  members?: string[];
+};
+
 export async function createProject(
-  input: Omit<Project, "id" | "ownerId">
+  input: CreateProjectInput
 ): Promise<Project> {
   const res = await fetch(`${BASE}/projects`, {
     method: "POST",

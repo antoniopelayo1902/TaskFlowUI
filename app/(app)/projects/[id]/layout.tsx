@@ -12,7 +12,6 @@ const tabs = [
   { href: (id: string) => `/projects/${id}/list`, label: "Lista" },
   { href: (id: string) => `/projects/${id}/sprints`, label: "Sprints" },
   { href: (id: string) => `/projects/${id}/tags`, label: "Etiquetas" },
-  { href: (id: string) => `/projects/${id}/members`, label: "Miembros" },
   { href: (id: string) => `/projects/${id}/files`, label: "Archivos" },
 ];
 
