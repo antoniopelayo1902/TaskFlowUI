@@ -24,14 +24,20 @@ function requireAuth(req: Request): JwtPayload | null {
 }
 
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   await connectDB();
+
+  const user = requireAuth(req);
+  if (!user) {
+    return NextResponse.json({ message: "No autorizado" }, { status: 401 });
+  }
+
   const { id } = await params;
 
   const doc = await Goal.findById(id);
-  if (!doc) {
+  if (!doc || String(doc.ownerId) !== user.sub) {
     return NextResponse.json({ message: "Meta no encontrada" }, { status: 404 });
   }
 
@@ -70,12 +76,15 @@ export async function PUT(
       allowed.progress = Math.max(0, Math.min(100, patch.progress));
     }
     if (typeof patch.projectId === "string") allowed.projectId = patch.projectId;
-    if (typeof patch.ownerId === "string") allowed.ownerId = patch.ownerId;
 
-    const updated = await Goal.findByIdAndUpdate(id, allowed, {
-      new: true,
-      runValidators: true,
-    });
+    const updated = await Goal.findOneAndUpdate(
+      { _id: id, ownerId: user.sub },
+      allowed,
+      {
+        new: true,
+        runValidators: true,
+      }
+    );
 
     if (!updated) {
       return NextResponse.json({ message: "Meta no encontrada" }, { status: 404 });
@@ -127,7 +136,7 @@ export async function DELETE(
 
   try {
     const { id } = await params;
-    const deleted = await Goal.findByIdAndDelete(id);
+    const deleted = await Goal.findOneAndDelete({ _id: id, ownerId: user.sub });
 
     if (!deleted) {
       return NextResponse.json({ message: "Meta no encontrada" }, { status: 404 });

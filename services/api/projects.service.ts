@@ -20,7 +20,7 @@ function authHeaders(): HeadersInit {
 export async function fetchProjects(): Promise<Project[]> {
   const res = await fetch(`${BASE}/projects`, {
     method: "GET",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     cache: "no-store",
   });
   if (!res.ok) {
@@ -33,7 +33,7 @@ export async function fetchProjects(): Promise<Project[]> {
 export async function fetchProject(id: string): Promise<Project> {
   const res = await fetch(`${BASE}/projects/${id}`, {
     method: "GET",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     cache: "no-store",
   });
   if (!res.ok) {
@@ -44,7 +44,7 @@ export async function fetchProject(id: string): Promise<Project> {
 }
 
 export async function createProject(
-  input: Omit<Project, "id">
+  input: Omit<Project, "id" | "ownerId">
 ): Promise<Project> {
   const res = await fetch(`${BASE}/projects`, {
     method: "POST",
@@ -63,7 +63,7 @@ export async function createProject(
 
 export async function updateProject(
   id: string,
-  patch: Partial<Omit<Project, "id">>
+  patch: Partial<Omit<Project, "id" | "ownerId">>
 ): Promise<Project> {
   const res = await fetch(`${BASE}/projects/${id}`, {
     method: "PUT",

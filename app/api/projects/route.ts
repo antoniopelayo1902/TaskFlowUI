@@ -23,10 +23,15 @@ function requireAuth(req: Request): JwtPayload | null {
   }
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   await connectDB();
 
-  const docs = await Project.find().sort({ createdAt: -1 });
+  const user = requireAuth(req);
+  if (!user) {
+    return NextResponse.json({ message: "No autorizado" }, { status: 401 });
+  }
+
+  const docs = await Project.find({ ownerId: user.sub }).sort({ createdAt: -1 });
   const projects = docs.map((d: any) => ({
     id: d._id.toString(),
     name: d.name as string,
@@ -47,11 +52,11 @@ export async function POST(req: Request) {
   }
 
   try {
-    const { name, key, ownerId, members } = await req.json();
+    const { name, key, members } = await req.json();
 
-    if (!name || !key || !ownerId) {
+    if (!name || !key) {
       return NextResponse.json(
-        { message: "Faltan campos requeridos (name, key, ownerId)" },
+        { message: "Faltan campos requeridos (name, key)" },
         { status: 400 }
       );
     }
@@ -59,7 +64,7 @@ export async function POST(req: Request) {
     const created = await Project.create({
       name: String(name).trim(),
       key: String(key).toUpperCase(),
-      ownerId: String(ownerId),
+      ownerId: user.sub,
       members: Array.isArray(members) ? members.map(String) : [],
     });
 

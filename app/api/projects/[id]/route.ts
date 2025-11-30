@@ -26,14 +26,23 @@ function requireAuth(req: Request): JwtPayload | null {
 
 // GET: obtener un proyecto
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   await connectDB();
+
+  const user = requireAuth(req);
+  if (!user) {
+    return NextResponse.json(
+      { message: "No autorizado" },
+      { status: 401 }
+    );
+  }
+
   const { id } = await params;
 
   const doc = await Project.findById(id);
-  if (!doc) {
+  if (!doc || String(doc.ownerId) !== user.sub) {
     return NextResponse.json(
       { message: "Proyecto no encontrado" },
       { status: 404 }
@@ -81,17 +90,18 @@ export async function PUT(
     if (typeof patch.key === "string") {
       allowed.key = String(patch.key).toUpperCase();
     }
-    if (typeof patch.ownerId === "string") {
-      allowed.ownerId = String(patch.ownerId);
-    }
     if (Array.isArray(patch.members)) {
       allowed.members = patch.members.map(String);
     }
 
-    const updated = await Project.findByIdAndUpdate(id, allowed, {
-      new: true,
-      runValidators: true,
-    });
+    const updated = await Project.findOneAndUpdate(
+      { _id: id, ownerId: user.sub },
+      allowed,
+      {
+        new: true,
+        runValidators: true,
+      }
+    );
 
     if (!updated) {
       return NextResponse.json(
@@ -152,7 +162,7 @@ export async function DELETE(
   const { id } = await params; 
 
   try {
-    const deleted = await Project.findByIdAndDelete(id);
+    const deleted = await Project.findOneAndDelete({ _id: id, ownerId: user.sub });
 
     if (!deleted) {
       return NextResponse.json(
