@@ -48,9 +48,6 @@ export default function Sidebar() {
           );
         })}
       </nav>
-      <div className="border-t p-3 text-xs text-muted-foreground">
-        Rol: {user?.role ?? "visitante"}
-      </div>
     </div>
   );
 }
