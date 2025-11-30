@@ -20,6 +20,7 @@ const schema = z.object({
     .regex(/^[A-Z0-9]+$/, { message: "Solo mayúsculas y números" }),
   ownerId: z.string().min(1, { message: "Owner requerido" }),
   members: z.array(z.string()).default([]),
+  dueDate: z.string().optional(),
 });
 
 type FormInput = z.input<typeof schema>;
@@ -39,12 +40,14 @@ export default function ProjectForm({
           key: initial.key,
           ownerId: initial.ownerId,
           members: initial.members,
+          dueDate: initial.dueDate ? initial.dueDate.slice(0, 10) : "",
         }
       : {
           name: "",
           key: "",
           ownerId: "",
           members: [],
+          dueDate: "",
         },
   });
 
@@ -73,12 +76,18 @@ export default function ProjectForm({
   const onSubmit = async (values: FormInput) => {
     setSaving(true);
     try {
+      const payload = {
+        ...values,
+        dueDate: values.dueDate && values.dueDate.length ? values.dueDate : undefined,
+      };
+      const { ownerId: _ignored, ...projectInput } = payload as any;
+
       let saved: Project | undefined;
       if (initial) {
-        saved = await updateProject(initial.id, values);
+        saved = await updateProject(initial.id, projectInput);
         toast.info("Actualizado", "Proyecto actualizado correctamente");
       } else {
-        saved = await createProject(values as Omit<Project, "id">);
+        saved = await createProject(projectInput as Omit<Project, "id" | "ownerId">);
         toast.success("Se creó correctamente");
       }
       if (saved) onSaved?.(saved);
@@ -122,6 +131,22 @@ export default function ProjectForm({
           {form.formState.errors.key && (
             <p className="mt-1 text-xs text-red-600">
               {form.formState.errors.key.message}
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <div>
+          <label className="mb-1 block text-sm font-medium">Fecha de entrega</label>
+          <input
+            type="date"
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            {...form.register("dueDate")}
+          />
+          {form.formState.errors.dueDate && (
+            <p className="mt-1 text-xs text-red-600">
+              {form.formState.errors.dueDate.message}
             </p>
           )}
         </div>

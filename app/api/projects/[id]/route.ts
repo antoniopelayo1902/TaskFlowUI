@@ -57,6 +57,8 @@ export async function GET(
         key: doc.key,
         ownerId: doc.ownerId,
         members: doc.members ?? [],
+        createdAt: (doc as any)?.createdAt?.toISOString?.() ?? new Date((doc as any)?.createdAt).toISOString(),
+        dueDate: (doc as any)?.dueDate ? new Date((doc as any)?.dueDate).toISOString() : undefined,
       },
     },
     { status: 200 }
@@ -92,6 +94,24 @@ export async function PUT(
     }
     if (Array.isArray(patch.members)) {
       allowed.members = patch.members.map(String);
+    }
+
+    if (typeof patch.dueDate === "string") {
+      let parsed: Date;
+      if (/^\d{4}-\d{2}-\d{2}$/.test(patch.dueDate)) {
+        const [yy, mm, dd] = patch.dueDate.split("-").map(Number);
+        // Normaliza a mediodía UTC para evitar desfases por zona horaria
+        parsed = new Date(Date.UTC(yy, (mm as number) - 1, dd as number, 12, 0, 0));
+      } else {
+        parsed = new Date(patch.dueDate);
+      }
+      if (isNaN(parsed.getTime())) {
+        return NextResponse.json(
+          { message: "Fecha de entrega inválida" },
+          { status: 400 }
+        );
+      }
+      allowed.dueDate = parsed;
     }
 
     const updated = await Project.findOneAndUpdate(
@@ -131,6 +151,8 @@ export async function PUT(
           key: updated.key,
           ownerId: updated.ownerId,
           members: updated.members ?? [],
+          createdAt: (updated as any)?.createdAt?.toISOString?.() ?? new Date((updated as any)?.createdAt).toISOString(),
+          dueDate: (updated as any)?.dueDate ? new Date((updated as any)?.dueDate).toISOString() : undefined,
         },
       },
       { status: 200 }

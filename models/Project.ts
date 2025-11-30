@@ -5,6 +5,7 @@ export interface IProject {
   key: string;
   ownerId: string;
   members: string[];
+  dueDate?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -21,6 +22,7 @@ const ProjectSchema = new Schema<IProject>(
     },
     ownerId: { type: String, required: true },
     members: { type: [String], required: true, default: [] },
+    dueDate: { type: Date },
   },
   { timestamps: true }
 );
