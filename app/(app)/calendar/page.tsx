@@ -4,8 +4,6 @@ import * as React from "react";
 import Breadcrumbs from "@/components/common/Breadcrumbs";
 import CalendarToolbar from "@/components/calendar/CalendarToolbar";
 import CalendarView from "@/components/calendar/CalendarView";
-import ConnectProviderBanner from "@/components/calendar/ConnectProviderBanner";
-import { toast } from "@/lib/toast";
 import { fetchProjects } from "@/services/api/projects.service";
 import { fetchGoals } from "@/services/api/goals.service";
 import type { CalendarEvent } from "@/components/calendar/CalendarView";
@@ -71,7 +69,6 @@ export default function CalendarPage() {
         />
       </div>
 
-      <ConnectProviderBanner onConnect={() => toast.info("Conexión simulada")} />
 
       <CalendarView view={view} events={events} current={current} />
     </div>
