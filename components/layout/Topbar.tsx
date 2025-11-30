@@ -11,8 +11,7 @@ export default function Topbar() {
       <div className="text-sm text-muted-foreground">
         {user ? (
           <span>
-            Conectado como <span className="font-medium text-foreground">{user.name}</span> · Rol:{" "}
-            <span className="font-medium text-foreground">{user.role}</span>
+            Conectado como <span className="font-medium text-foreground">{user.name}</span>
           </span>
         ) : (
           <span>Visitante</span>
