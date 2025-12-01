@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { Goal } from "@/models/Goal";
+import { Project } from "@/models/Project";
 import { verifyUserToken } from "@/lib/jwt";
 import { getIO } from "@/lib/socket-server";
 
@@ -30,7 +31,12 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const projectId = searchParams.get("projectId") ?? undefined;
 
-  const filter: Record<string, any> = {};
+  const user = requireAuth(req);
+  if (!user) {
+    return NextResponse.json({ message: "No autorizado" }, { status: 401 });
+  }
+
+  const filter: Record<string, any> = { ownerId: user.sub };
   if (projectId) filter.projectId = projectId;
 
   const docs = await Goal.find(filter).sort({ createdAt: -1 });
@@ -41,6 +47,7 @@ export async function GET(req: Request) {
     progress: typeof d.progress === "number" ? (d.progress as number) : 0,
     projectId: typeof d.projectId === "string" ? (d.projectId as string) : undefined,
     ownerId: typeof d.ownerId === "string" ? (d.ownerId as string) : undefined,
+    dueDate: d.dueDate ? new Date(d.dueDate as any).toISOString() : undefined,
   }));
 
   return NextResponse.json({ goals }, { status: 200 });
@@ -57,7 +64,7 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { title, progress, projectId, ownerId } = body ?? {};
+    const { title, progress, projectId, dueDate } = body ?? {};
 
     if (!title) {
       return NextResponse.json(
@@ -71,11 +78,38 @@ export async function POST(req: Request) {
         ? Math.max(0, Math.min(100, progress))
         : 0;
 
+    // Validate project ownership if provided
+    let projectIdStr: string | undefined;
+    if (projectId) {
+      const proj = await Project.findOne({ _id: String(projectId), ownerId: user.sub });
+      if (!proj) {
+        return NextResponse.json({ message: "Proyecto no accesible" }, { status: 403 });
+      }
+      projectIdStr = String(projectId);
+    }
+
+    // Normalize dueDate similar to Projects (avoid TZ shifts)
+    let due: Date | undefined;
+    if (dueDate) {
+      let parsed: Date;
+      if (typeof dueDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(dueDate)) {
+        const [yy, mm, dd] = (dueDate as string).split("-").map(Number);
+        parsed = new Date(Date.UTC(yy, (mm as number) - 1, dd as number, 12, 0, 0));
+      } else {
+        parsed = new Date(dueDate);
+      }
+      if (isNaN(parsed.getTime())) {
+        return NextResponse.json({ message: "Fecha de entrega inválida" }, { status: 400 });
+      }
+      due = parsed;
+    }
+
     const doc = await Goal.create({
       title: String(title).trim(),
       progress: value,
       projectId: projectId ? String(projectId) : undefined,
-      ownerId: ownerId ? String(ownerId) : undefined,
+      ownerId: user.sub,
+      dueDate: due,
     });
 
     // Realtime: activity feed for goal creation
@@ -98,6 +132,7 @@ export async function POST(req: Request) {
           progress: doc.progress,
           projectId: doc.projectId,
           ownerId: doc.ownerId,
+          dueDate: doc.dueDate ? new Date(doc.dueDate as any).toISOString() : undefined,
         },
       },
       { status: 201 }

@@ -6,6 +6,7 @@ export type Goal = {
   progress: number; // 0..100
   projectId?: string;
   ownerId?: string;
+  dueDate?: string;
 };
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000/api";
@@ -23,7 +24,7 @@ export async function fetchGoals(params?: { projectId?: string }): Promise<Goal[
 
   const res = await fetch(url.toString(), {
     method: "GET",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     cache: "no-store",
   });
 

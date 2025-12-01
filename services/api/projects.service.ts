@@ -6,6 +6,8 @@ export type Project = {
   key: string;
   ownerId: string;
   members: string[];
+  createdAt?: string;
+  dueDate?: string;
 };
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000/api";
@@ -20,7 +22,7 @@ function authHeaders(): HeadersInit {
 export async function fetchProjects(): Promise<Project[]> {
   const res = await fetch(`${BASE}/projects`, {
     method: "GET",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     cache: "no-store",
   });
   if (!res.ok) {
@@ -33,7 +35,7 @@ export async function fetchProjects(): Promise<Project[]> {
 export async function fetchProject(id: string): Promise<Project> {
   const res = await fetch(`${BASE}/projects/${id}`, {
     method: "GET",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     cache: "no-store",
   });
   if (!res.ok) {
@@ -43,8 +45,15 @@ export async function fetchProject(id: string): Promise<Project> {
   return data.project as Project;
 }
 
+export type CreateProjectInput = {
+  name: string;
+  key: string;
+  dueDate?: string;
+  members?: string[];
+};
+
 export async function createProject(
-  input: Omit<Project, "id">
+  input: CreateProjectInput
 ): Promise<Project> {
   const res = await fetch(`${BASE}/projects`, {
     method: "POST",
@@ -63,7 +72,7 @@ export async function createProject(
 
 export async function updateProject(
   id: string,
-  patch: Partial<Omit<Project, "id">>
+  patch: Partial<Omit<Project, "id" | "ownerId">>
 ): Promise<Project> {
   const res = await fetch(`${BASE}/projects/${id}`, {
     method: "PUT",

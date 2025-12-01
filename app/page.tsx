@@ -14,7 +14,7 @@ export default function Home() {
           </h1>
           <p className="mx-auto max-w-2xl text-balance text-muted-foreground">
             Navega por las vistas mock: Dashboard, Proyectos, Kanban, Lista, Sprints, Etiquetas,
-            Miembros, Mi trabajo, Metas, Calendario, Perfil y Administración/Usuarios.
+            Mi trabajo, Metas, Calendario, Perfil y Administración/Usuarios.
           </p>
           <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Button asChild size="lg" className="w-full sm:w-auto">

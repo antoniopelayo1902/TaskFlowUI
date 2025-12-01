@@ -23,16 +23,23 @@ function requireAuth(req: Request): JwtPayload | null {
   }
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   await connectDB();
 
-  const docs = await Project.find().sort({ createdAt: -1 });
+  const user = requireAuth(req);
+  if (!user) {
+    return NextResponse.json({ message: "No autorizado" }, { status: 401 });
+  }
+
+  const docs = await Project.find({ ownerId: user.sub }).sort({ createdAt: -1 });
   const projects = docs.map((d: any) => ({
     id: d._id.toString(),
     name: d.name as string,
     key: d.key as string,
     ownerId: d.ownerId as string,
     members: (d.members ?? []) as string[],
+    createdAt: d.createdAt?.toISOString?.() ?? new Date(d.createdAt).toISOString(),
+    dueDate: d.dueDate ? new Date(d.dueDate as any).toISOString() : undefined,
   }));
 
   return NextResponse.json({ projects }, { status: 200 });
@@ -47,20 +54,40 @@ export async function POST(req: Request) {
   }
 
   try {
-    const { name, key, ownerId, members } = await req.json();
+    const { name, key, members, dueDate } = await req.json();
 
-    if (!name || !key || !ownerId) {
+    if (!name || !key) {
       return NextResponse.json(
-        { message: "Faltan campos requeridos (name, key, ownerId)" },
+        { message: "Faltan campos requeridos (name, key)" },
         { status: 400 }
       );
+    }
+
+    let due: Date | undefined;
+    if (dueDate) {
+      let parsed: Date;
+      if (typeof dueDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(dueDate)) {
+        const [yy, mm, dd] = dueDate.split("-").map(Number);
+        // Guardar como fecha "neutra" al mediodía UTC para evitar desfases por zona horaria
+        parsed = new Date(Date.UTC(yy, (mm as number) - 1, dd as number, 12, 0, 0));
+      } else {
+        parsed = new Date(dueDate);
+      }
+      if (isNaN(parsed.getTime())) {
+        return NextResponse.json(
+          { message: "Fecha de entrega inválida" },
+          { status: 400 }
+        );
+      }
+      due = parsed;
     }
 
     const created = await Project.create({
       name: String(name).trim(),
       key: String(key).toUpperCase(),
-      ownerId: String(ownerId),
+      ownerId: user.sub,
       members: Array.isArray(members) ? members.map(String) : [],
+      dueDate: due,
     });
 
     try {
@@ -82,6 +109,8 @@ export async function POST(req: Request) {
           key: created.key,
           ownerId: created.ownerId,
           members: created.members ?? [],
+          createdAt: created.createdAt?.toISOString?.() ?? new Date(created.createdAt as any).toISOString(),
+          dueDate: created.dueDate ? new Date(created.dueDate as any).toISOString() : undefined,
         },
       },
       { status: 201 }

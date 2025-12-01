@@ -1,306 +1,289 @@
-# TaskFlow-Cliente (UI + API real)
+# TaskFlow UI + API (Next.js 16, TypeScript, Mongo, Socket.IO)
 
-Front‑end en Next.js 16 (App Router) + TypeScript. El proyecto inició como “mock UI”, pero ahora incluye persistencia real con MongoDB/Mongoose para módulos clave (auth, admin/users, projects, tasks, sprints, goals). Se mantienen algunos módulos de demostración (p. ej. Kanban/Calendar) sin persistencia.
+Aplicación full‑stack basada en Next.js (App Router) con UI en React y API integrada. Incluye persistencia real con MongoDB/Mongoose, autenticación JWT, control de acceso por propietario (owner), documentación OpenAPI y soporte de tiempo real con Socket.IO. La UI ha sido simplificada para mostrar únicamente funcionalidades reales.
 
-Tecnologías
-- Next.js 16 (App Router) + TypeScript
-- Tailwind CSS v4 + shadcn/ui (button, input, dialog, tabs, form, sonner)
-- Estado local y servicios cliente (fetch nativo)
-- Mongoose (MongoDB) para persistencia de usuarios, proyectos, tareas, sprints y metas
-- JWT (jsonwebtoken) para autenticación
-- ESLint base de Next incluida
+Tabla de contenidos
+- Introducción
+- Características principales
+- Arquitectura y estructura
+- Modelado de datos (Mongoose)
+- Autenticación y autorización
+- Endpoints (resumen)
+- Cliente (servicios y UI)
+- Calendario (dueDate)
+- Tiempo real (Socket.IO)
+- Variables de entorno
+- Instalación, ejecución y scripts
+- Pruebas (unitarias y E2E)
+- Seguridad y buenas prácticas
+- Roadmap y limitaciones
+- Licencia
 
-Estado actual (resumen)
-- Persistencia real:
-  - Auth (credenciales + Google OAuth)
-  - Admin de usuarios (listado y cambio de rol)
-  - Projects (CRUD + gestión de miembros)
-  - Tasks (CRUD)
-  - Sprints (CRUD)
-  - Goals (CRUD)
-- Mock/estático (pendiente de persistencia real):
-  - Kanban (drag visual)
-  - Calendar (vista estática y banner de conexión)
+Introducción
+TaskFlow-Cliente es un proyecto educativo/demostrativo que integra:
+- Frontend en Next.js 16 (App Router) + React 19 + TypeScript + Tailwind v4 + shadcn/ui.
+- Backend API en los propios route handlers de Next (app/api/**).
+- Persistencia con MongoDB/Mongoose.
+- Autenticación con JWT y control de acceso por propietario (owner).
+- Documentación REST con Swagger UI en /api-docs.
+- Socket.IO para demos de tiempo real (servidor activo).
 
-Requisitos
-- Node 18+ (recomendado 20+)
-- npm 9+
-- MongoDB accesible (local o remoto)
+Características principales
+- Autenticación por credenciales y Google OAuth (authorization code).
+- Proyectos y Metas:
+  - CRUD real con control por propietario (owner).
+  - Due date (dueDate) en modelo y API.
+  - Filtrado por owner en GET y validaciones de acceso en GET/id, PUT, DELETE.
+- UI simplificada y enfocada:
+  - Dashboard: accesos rápidos, estadísticas y próximas entregas (Proyectos/Metas).
+  - Mi trabajo: muestra solamente “Mis proyectos”.
+  - Calendario: grilla mensual real con navegación; muestra Proyectos y Metas con dueDate.
+  - Perfil: sólo lectura (nombre, correo).
+  - Topbar/Sidebar: sin mostrar el rol del usuario.
+  - Footer: “© 2025 TaskFlow.”.
+  - Vista de sockets: sólo “Socket logs” y “Actividad en tiempo real”.
+- Documentación OpenAPI interactiva en /api-docs.
+- Pruebas unitarias (Vitest) y E2E (Cypress).
 
-Variables de entorno (TaskFlowUI/.env)
-- Server/API
-  - MONGODB_URI=mongodb://localhost:27017/taskflow
-  - JWT_SECRET=un_secret_largo_aleatorio
-  - JWT_EXPIRES_IN=7d
-  - GOOGLE_CLIENT_ID=<client_id_servidor> (para /api/auth/google)
-  - GOOGLE_CLIENT_SECRET=<secret_servidor>
-  - GOOGLE_REDIRECT_URI=http://localhost:3000/login
-- Client
-  - NEXT_PUBLIC_API_URL=http://localhost:3000/api
-  - NEXT_PUBLIC_GOOGLE_CLIENT_ID=<client_id_publico>
+Arquitectura y estructura
+Raíz
+- app/ App Router (páginas Server/Client + API)
+- components/ Componentes UI (shadcn/ui, layout, tablas, formularios)
+- lib/ Utilidades (db, jwt, roles, socket server/client, s3, utils)
+- models/ Modelos Mongoose
+- services/ Servicios de cliente (fetch)
+- hooks/ Hooks (useSocket, etc.)
+- cypress/, test/ Pruebas E2E y unitarias
+- docs/ Documentación adicional
 
-Instalación y ejecución
-1) Instalar dependencias
-   npm i
+Rutas UI (extracto)
+- /login, /register
+- /(app)/dashboard
+- /(app)/projects, /(app)/projects/[id]/*
+- /(app)/goals
+- /(app)/my-work
+- /(app)/calendar
+- /(app)/profile
+- /(app)/admin/users (solo admin)
+- /socket-demo (vista simplificada: logs y actividad RT)
 
-2) Levantar en desarrollo
-   npm run dev
-   Abrir http://localhost:3000
+API (App Router)
+- /api/auth/*: register, login, google
+- /api/projects, /api/projects/[id], /api/projects/[id]/files/*
+- /api/goals, /api/goals/[id]
+- /api/tasks, /api/tasks/[id]
+- /api/sprints, /api/sprints/[id]
+- /api/users (público: nombre, email, rol para selects)
+- /api/admin (listado y cambio de rol; requiere admin)
+- /api/docs/openapi (JSON), /api-docs (UI Swagger)
+- /api/socket (warm‑up Socket.IO)
 
-Documentación OpenAPI/Swagger
-- Especificación OpenAPI: GET /api/docs/openapi
-- UI interactiva Swagger: http://localhost:3000/api-docs
-- Notas:
-  - Endpoints de escritura requieren Authorization: Bearer <token> (ver sección Autenticación).
-  - La UI usa swagger-ui-react con carga dinámica para evitar SSR.
+Patrón Server/Client
+- Las páginas de App Router usan “Server page + ClientPageClient” cuando aplica.
+- Metadatos exportados sólo en componentes de servidor.
 
-Nota Turbopack: si aparece un warning de “workspace root”, puedes configurar `turbopack.root` en next.config o unificar lockfiles.
+Modelado de datos (Mongoose)
+User (models/User.ts)
+- name: string
+- email: string (único, lowercase)
+- password?: string
+- role: "admin" | "manager" | "developer"
+- provider: "credentials" | "google"
+- googleId?: string
+- avatarUrl?: string
+- timestamps
 
-Autenticación y roles
-- Login/Registro por credenciales: /api/auth/login y /api/auth/register
-- Google OAuth: /api/auth/google (authorization code)
-- JWT devuelto en login/reg/google. Actualmente se guarda en localStorage (pendiente migrar a cookie httpOnly si se desea).
-- Rutas de escritura (POST/PUT/DELETE) requieren Authorization: Bearer <token>. Las lecturas (GET) son públicas por simplicidad.
+Project (models/Project.ts)
+- name: string
+- key: string (uppercase, 2..6)
+- ownerId: string
+- members: string[] (no usado en UI actual; por defecto [])
+- dueDate?: Date
+- timestamps
 
-Rutas API relevantes (App Router)
-- Auth
-  - POST /api/auth/register
-  - POST /api/auth/login
-  - POST /api/auth/google
-- Admin
-  - GET /api/admin (lista usuarios con campos seguros, requiere rol admin)
-  - PUT /api/admin (actualiza rol, requiere rol admin)
-- Users públicos (para selects/etiquetas en UI)
-  - GET /api/users
-- Projects
-  - GET/POST /api/projects
-  - GET/PUT/DELETE /api/projects/[id]
-- Tasks
-  - GET/POST /api/tasks (query: projectId, assigneeId)
-  - GET/PUT/DELETE /api/tasks/[id]
-- Sprints
-  - GET/POST /api/sprints (query: projectId)
-  - GET/PUT/DELETE /api/sprints/[id]
-- Goals
-  - GET/POST /api/goals (query: projectId)
-  - GET/PUT/DELETE /api/goals/[id]
+Goal (models/Goal.ts)
+- title: string
+- progress: number (0..100)
+- projectId?: string
+- ownerId?: string
+- dueDate?: Date
+- timestamps
 
-Estructura principal (extracto)
-- app/
-  - layout.tsx (Server) envuelve con ClientProviders + Footer
-  - providers.tsx (Client) ThemeProvider + AuthProvider + NavbarPublic + Toaster + GoogleOAuthProvider
-  - (app)/layout.tsx (Server) aplica AppLayout + AuthGuard (segmento autenticado)
-  - (app)/projects/page.tsx (Server wrapper + ProjectsPageClient)
-  - (app)/projects/[id]/members/page.tsx (Client; gestión de miembros con API real)
-  - (app)/projects/[id]/sprints/page.tsx (Client; lista sprints con API real)
-  - (app)/goals/page.tsx (Server wrapper + GoalsPageClient, API real)
-  - (app)/dashboard, (app)/my-work, (app)/calendar, (app)/profile (ver código)
-- components/
-  - layout/, dashboard/, tables/, forms/, kanban/, calendar/, common/, providers/
-- services/api/
-  - auth.service.ts (login/register/google)
-  - users.service.ts (admin: lista y rol)
-  - users-public.service.ts (lista pública de usuarios; select/etiquetas)
-  - projects.service.ts (fetchProject(s), create/update/delete)
-  - tasks.service.ts (fetchTasks, create/update/delete)
-  - sprints.service.ts (fetchSprints, create/update/delete)
-  - goals.service.ts (fetchGoals, create/update/delete)
-- models/
-  - User, Project, Task, Sprint, Goal (Mongoose)
-- app/api/
-  - auth/*, admin/route.ts, users/route.ts
-  - projects/route.ts, projects/[id]/route.ts
-  - tasks/route.ts, tasks/[id]/route.ts
-  - sprints/route.ts, sprints/[id]/route.ts
-  - goals/route.ts, goals/[id]/route.ts
+Task (models/Task.ts)
+- projectId: string
+- title: string
+- status: "Todo" | "Doing" | "Done"
+- priority: "High" | "Medium" | "Low"
+- assigneeId?: string
+- dueDate?: Date
+- points?: number
+- tags?: string[]
+- description?: string
+- timestamps
 
-Patrón Server/Client + metadata
-- Solo Server Components pueden exportar `export const metadata` o `generateMetadata`.
-- Páginas que usan hooks (useState, useEffect, useParams, toasts, etc.) deben delegar UI a un componente Client y mantener `page.tsx`/`layout.tsx` como Server cuando sea posible.
-- Ver docs/metadata-pattern.md.
+Sprint (models/Sprint.ts), File (models/File.ts)
+- Ver modelos para detalles.
 
-UI actualizada a API real
+Autenticación y autorización
+- JWT firmado con JWT_SECRET; expiración configurable (JWT_EXPIRES_IN).
+- Authorization: Bearer <token> en endpoints de escritura y en GET protegidos.
+- Control por propietario (owner‑scoped):
+  - Projects, Goals:
+    - GET: token requerido; lista sólo recursos del owner.
+    - GET [id]: 404 si no pertenece al owner.
+    - POST: fuerza ownerId = user.sub (se ignora ownerId del body).
+    - PUT/DELETE: sólo si ownerId = user.sub.
+  - Tasks, Sprints: CRUD real. Owner‑scoped no aplicado aún (mejorable).
+- Admin:
+  - /api/admin: requiere rol admin para listar usuarios y cambiar rol.
+
+Endpoints (resumen)
+Auth
+- POST /api/auth/register
+- POST /api/auth/login
+- POST /api/auth/google
+
+Projects (owner‑scoped)
+- GET /api/projects (token): lista sólo del owner. Devuelve dueDate y createdAt.
+- POST /api/projects (token): crea proyecto; dueDate opcional (“YYYY-MM-DD” o ISO).
+- GET /api/projects/[id] (token, owner)
+- PUT /api/projects/[id] (token, owner): name/key/dueDate; no permite ownerId.
+- DELETE /api/projects/[id] (token, owner)
+- Files S3:
+  - /api/projects/[id]/files
+  - /api/projects/[id]/files/[fileId]
+
+Goals (owner‑scoped)
+- GET /api/goals (token): opcional projectId; lista sólo del owner.
+- POST /api/goals (token): title requerido; dueDate opcional; valida projectId si se envía.
+- GET /api/goals/[id] (token, owner)
+- PUT /api/goals/[id] (token, owner)
+- DELETE /api/goals/[id] (token, owner)
+
+Tasks
+- GET/POST /api/tasks?projectId=&assigneeId=
+- GET/PUT/DELETE /api/tasks/[id]
+
+Sprints
+- GET/POST /api/sprints?projectId=
+- GET/PUT/DELETE /api/sprints/[id]
+
+OpenAPI
+- GET /api/docs/openapi
+- UI: /api-docs
+
+Cliente (servicios y UI)
+Servicios cliente (services/api/**)
+- auth.service.ts: login/register/google, helpers de token.
+- users.service.ts (admin) y users-public.service.ts (listado público).
+- projects.service.ts: fetchProjects/fetchProject/create/update/delete (Authorization en GET).
+- goals.service.ts: fetchGoals/create/update/delete.
+- sprints.service.ts, tasks.service.ts: CRUD.
+- mocks en services/mock/** (no usados en UI real actual).
+
+UI (extracto)
+- Dashboard: accesos rápidos (Proyectos/Metas/Calendario/Mi trabajo), estadísticas simples y próximas entregas (7 días) de Proyectos/Metas. Sin feed RT.
 - Projects:
-  - components/tables/ProjectsTable.tsx ahora usa fetchProjects + fetchUsers (no mock).
-  - components/forms/ProjectForm.tsx ahora usa fetchUsers para owner/members y create/update reales.
-  - app/(app)/projects/[id]/members/page.tsx usa fetchProject, updateProject y fetchUsers para agregar/remover miembros.
-- Tasks:
-  - components/forms/TaskForm.tsx usa fetchUsers para asignación; create/update reales.
-  - components/tables/TasksList.tsx lista y elimina tareas vía API real.
-- Sprints:
-  - forms + page (projects/[id]/sprints) conectados a API.
+  - Tabla sin columna “Miembros”.
+  - Formulario con name, key, dueDate (owner forzado en backend).
+  - Members UI removida (ruta /projects/[id]/members redirige a kanban).
 - Goals:
-  - forms + GoalsPageClient conectados a API; lista y elimina.
+  - Formulario con title, progress, projectId opcional (owner) y dueDate.
+- My Work:
+  - Listado de “Mis proyectos” (sólo del owner).
+- Profile:
+  - Sólo lectura (nombre, correo).
+- Topbar/Sidebar:
+  - Ocultan el rol (“Rol: …”).
+- Footer:
+  - “© 2025 TaskFlow.”
+- Socket demo:
+  - Sólo “Socket logs” y “Actividad en tiempo real”.
 
-Cómo probar (UI)
-1) Autenticación:
-   - /login → Inicia sesión (credenciales o Google). Verifica que se navega a /dashboard.
-2) Projects:
-   - /projects → crea/edita/elimina. Owner/members se leen de /api/users.
-   - /projects/[id]/members → agrega/remueve miembros; persiste en DB.
-3) Tasks:
-   - Vistas que usan TasksList → crear/editar/eliminar; asignar usuarios reales.
-4) Sprints:
-   - /projects/[id]/sprints → CRUD real.
-5) Goals:
-   - /goals → CRUD real.
+Calendario (dueDate)
+- Grilla mensual real con navegación (Hoy, anterior, siguiente).
+- Muestra eventos únicamente si hay dueDate:
+  - Proyectos: usa project.dueDate.
+  - Metas: usa goal.dueDate.
+- Normalizaciones para evitar desfases por zona horaria:
+  - Cliente: “YYYY-MM-DD” se trata como fecha local (new Date(yyyy, mm-1, dd)).
+  - Servidor: si llega “YYYY-MM-DD”, se guarda como Date.UTC(..., 12:00) para no “cambiar de día” por TZ.
 
-Pruebas automatizadas (unitarias y E2E)
-- Stack de unitarias: Vitest + @testing-library/react + @testing-library/user-event
-  - Entorno: `happy-dom` (evita conflictos ESM parse5/jsdom)
-  - Setup global: `test/setup.ts` (jest-dom, cleanup, mocks de next/navigation y toast)
-  - Ubicación de tests: `test/unit/**`
-  - Ejecutar:
-    - Todas: `npm run test`
-    - Watch: `npm run test:watch`
-    - UI de Vitest: `npm run test:ui`
-    - Cobertura: `npm run coverage` (abre `coverage/index.html`)
+Tiempo real (Socket.IO)
+- Servidor dedicado (lib/socket-server.ts) con warm‑up GET /api/socket.
+- Autenticación en handshake con JWT; socket.data.user = { id, role }.
+- Rooms: project:{id}; eventos activity:* y task:*; presencia por room (mock en memoria).
+- CORS en dev: http://localhost:3000; prod configurable.
+- Vista “/socket-demo”:
+  - Muestra “Socket logs” y “Actividad en tiempo real”.
 
-- E2E con Cypress:
-  - Configuración: `cypress.config.ts` (baseUrl http://localhost:3000, specPattern `cypress/e2e/**/*.cy.ts`)
-  - Soporte: `cypress/support/e2e.ts` + `cypress/support/commands.ts` (incluye `@testing-library/cypress` y `cy.assertToast`)
-  - Especificaciones incluidas:
-    - `cypress/e2e/auth.cy.ts`
-      - Éxito: intercepta `POST /api/auth/login`, guarda token, redirige a `/dashboard`, muestra toast “Sesión iniciada”.
-      - Error: responde 401, permanece en `/login`, muestra toast “Credenciales inválidas” y no guarda token.
-    - `cypress/e2e/login_to_projects.cy.ts`
-      - Login exitoso y navegación al apartado “Proyectos”.
-      - Stub de `GET /api/users` y `GET /api/projects` para poblar la tabla.
-      - Verifica heading “Proyectos” y el link al proyecto simulado.
-  - Cómo correr:
-    1) Levanta la app: `npm run dev`
-    2) GUI (para “ver” los specs en Cypress): `npm run cy:open`
-       - Selecciona E2E Testing y el navegador; verás ambos specs listados (auth.cy.ts y login_to_projects.cy.ts).
-    3) Headless: `npm run e2e`
-       - Nota: en headless no verás la interfaz de Cypress; sólo el resultado en terminal.
-  - Tips:
-    - Si no ves un spec en la GUI, asegúrate de que esté bajo `cypress/e2e/` y termine en `.cy.ts` (coincide con `specPattern`).
-    - Si usas otro puerto, corre con: `CYPRESS_baseUrl=http://localhost:3001 npm run e2e`.
+Variables de entorno (.env)
+Server/API
+- MONGODB_URI=mongodb://localhost:27017/taskflow
+- JWT_SECRET=un_secret_largo_aleatorio
+- JWT_EXPIRES_IN=7d
+- GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI
 
-Validaciones reactivas en formularios (zod + RHF)
-- AuthCard (components/forms/AuthCard.tsx)
-  - Login: email requerido + formato; password min 6.
-  - Registro: name requerido; email requerido + formato; password min 6.
-- ProjectForm (components/forms/ProjectForm.tsx)
-  - name requerido
-  - key requerido (min 2, max 6, regex mayúsculas/números). La UI fuerza uppercase al escribir.
-  - ownerId requerido
-  - members array de strings (opcional/por defecto [])
-- TaskForm (components/forms/TaskForm.tsx)
-  - title requerido
-  - status enum ["Todo","Doing","Done"] y priority enum ["High","Medium","Low"]
-  - points entero 0..100 (opcional)
-  - projectId requerido
-  - dueDate/description/tags opcionales
+Client
+- NEXT_PUBLIC_API_URL=http://localhost:3000/api
+- NEXT_PUBLIC_GOOGLE_CLIENT_ID=<client_id_publico>
 
-Pruebas rápidas con curl (opcional)
-- Registrar usuario y obtener token:
-  curl -s -X POST http://localhost:3000/api/auth/register \
-    -H "Content-Type: application/json" \
-    -d '{"name":"Tester","email":"tester@example.com","password":"Passw0rd!"}'
-  export TOKEN="PEGA_AQUI_EL_TOKEN"
+Sockets (opcional)
+- SOCKET_PORT=3001
+- NEXT_PUBLIC_SOCKET_PORT=3001
+- NEXT_PUBLIC_SOCKET_URL=<url completa> (prioritaria)
+- NEXT_PUBLIC_SITE_URL (CORS en prod)
 
-- Crear proyecto:
-  curl -s -X POST http://localhost:3000/api/projects \
-    -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
-    -d '{"name":"API Project","key":"AP","ownerId":"<userId>","members":["<userId>"]}'
+S3 (opcional)
+- AWS_S3_BUCKET, AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
 
-- Listar proyectos:
-  curl -s http://localhost:3000/api/projects
+Instalación, ejecución y scripts
+Instalación
+- npm i
 
-- Actualizar/Borrar:
-  curl -s -X PUT http://localhost:3000/api/projects/{id} \
-    -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
-    -d '{"name":"API Project v2"}'
-  curl -s -X DELETE http://localhost:3000/api/projects/{id} \
-    -H "Authorization: Bearer $TOKEN"
+Desarrollo
+- npm run dev
+- Abrir http://localhost:3000
 
-Scripts disponibles
-- Desarrollo: `npm run dev`
-- Lint: `npm run lint`
+Build/Start
+- npm run build
+- npm start
+
+Docs/OpenAPI
+- http://localhost:3000/api-docs
+
+Lint/Tests/E2E
+- Lint: npm run lint
 - Unit tests:
-  - `npm run test` (CI)
-  - `npm run test:watch`
-  - `npm run test:ui`
-  - `npm run coverage`
+  - npm run test / npm run test:watch / npm run test:ui / npm run coverage
 - Cypress:
-  - `npm run cy:open` (GUI)
-  - `npm run cy:run` (headless)
-  - `npm run e2e` (alias a headless E2E)
+  - GUI: npm run cy:open
+  - Headless: npm run e2e
 
-Seguridad
-- Token en localStorage por compatibilidad con UI actual. Recomendado migrar a cookie httpOnly + SameSite.
-- Endpoints de escritura validan JWT (Authorization: Bearer <token>).
-- Añadir rate limiting/logs estructurados si se requiere endurecer.
+Pruebas
+Unitarias (Vitest + Testing Library)
+- Entorno happy-dom (config en test/setup.ts).
+- Mocks de next/navigation, toast, etc.
 
-Limitaciones conocidas
-- Kanban/Calendar siguen mock/estáticos (sin persistencia).
-- La rehidratación de sesión al recargar aún no valida el token automáticamente (se sugiere implementar /api/auth/me + AuthProvider que rehidrate al montar).
+E2E (Cypress)
+- BaseUrl http://localhost:3000
+- Especificaciones de autenticación y navegación a Proyectos.
+- Nota: Especificaciones relacionadas con “Miembros” pueden requerir actualización debido a la UI actual.
 
-Roadmap sugerido
-- /api/auth/me + rehidratación en AuthProvider
-- Migrar Kanban/Calendar a API real (opcional)
-- Validaciones zod en POST/PUT, shape uniforme de errores
-- Índices/constraints (Project.key único; índices por FK)
-- Tests básicos de API y .env.example + script de seed
+Seguridad y buenas prácticas
+- Token almacenado en localStorage por compatibilidad; recomendado migrar a cookie httpOnly + SameSite (+ CSRF si se usa cookie en escrituras).
+- GET de Proyectos/Metas requieren token y se filtran por owner para evitar exposición de datos.
+- Sockets: validar JWT en handshake; limitar CORS en producción; considerar rate limiting y logs.
+- S3: validar size/content-type/keys; evitar datos sensibles en payloads.
 
-Sockets (Tiempo real con Socket.IO)
-- Objetivo: comunicación en tiempo real autenticada con JWT, rooms por proyecto y canal global.
-- Estado: Implementado server Socket.IO dedicado (lib/socket-server.ts), warm-up /api/socket, factory cliente (lib/socket-client.ts), hook (hooks/useSocket.ts) y demos UI.
-- Demo incluida:
-  - Dashboard: components/realtime/RealtimeActivityFeed (canal global activity:*).
-  - Projects/[id]/kanban: ProjectPresence (presence:* por room project:{id}) y TaskEventsDemo (task:* mock).
-
-Dependencias
-- socket.io (server), socket.io-client (client).
-
-Variables de entorno (opcional, valores por defecto)
-- SOCKET_PORT=3001 (puerto del servidor sockets; por defecto 3001)
-- NEXT_PUBLIC_SOCKET_PORT=3001 (puerto del cliente; por defecto 3001)
-- NEXT_PUBLIC_SOCKET_URL=<url_completa> (opcional; si se define, tiene prioridad sobre lo anterior)
-- CORS: en dev se permite http://localhost:3000; en prod usa NEXT_PUBLIC_SITE_URL si está definido.
-
-Arquitectura
-- Servidor (persistente con guardias globalThis):
-  - lib/socket-server.ts
-    - http.createServer() único en puerto SOCKET_PORT.
-    - CORS configurado.
-    - Middleware de autenticación: toma token de handshake (auth.token o query.token) y valida con lib/jwt.verifyUserToken.
-    - Rooms: 'join-room' y 'leave-room'.
-    - Eventos:
-      - activity:post → emite activity:new (global).
-      - task:create|update|move → emite a room project:{projectId}.
-      - presence:ping → emite presence:users (lista mock de conectados por room).
-    - Presencia: mapa en memoria por room (mock).
-  - app/api/socket/route.ts: inicializa perezosamente el servidor (GET /api/socket) con no-store.
-- Cliente:
-  - lib/socket-client.ts: createSocket(token) resuelve URL de sockets (NEXT_PUBLIC_SOCKET_URL o derivada).
-  - hooks/useSocket.ts: crea/destruye socket, helpers emit/on/off/joinRoom/leaveRoom, warm-up automático a /api/socket.
-
-Componentes de demostración
-- components/realtime/RealtimeActivityFeed: feed global; botón para activity:post.
-- components/realtime/ProjectPresence: unirse a project:{id}, muestra usuarios conectados (mock).
-- components/realtime/TaskEventsDemo: emitir/escuchar task:create|update|move (mock) en project:{id}.
-
-Integración de ejemplo en páginas
-- app/(app)/dashboard/DashboardPageClient.tsx → RealtimeActivityFeed.
-- app/(app)/projects/[id]/kanban/KanbanPageClient.tsx → ProjectPresence + TaskEventsDemo.
-
-Cómo probar (local)
-1) Levantar la app: npm run dev (http://localhost:3000).
-2) Autenticarte (login/register) para obtener JWT (guardado en localStorage).
-3) Dashboard:
-   - Abrir /dashboard. Click en “Publicar mensaje”. Ver el item en “Actividad en tiempo real”.
-4) Presencia y tareas:
-   - Abrir dos ventanas en /projects/{id}/kanban (mismo {id}).
-   - Ver “Presencia en proyecto” actualizarse al abrir ambas.
-   - Usar controles de “Task Events (mock)” para emitir task:create/update/move y verlos llegar en ambas ventanas.
-5) No debe registrarse “Multiple socket servers initialized” en consola (guardia global).
-
-Notas de seguridad
-- Handshake exige JWT válido; conexiones sin token reciben Unauthorized.
-- No se persiste información de sockets en DB (mock). Payloads mínimos sin datos sensibles.
-- Para producción, considerar rate limiting, logs y revisar CORS/orígenes.
+Roadmap y limitaciones
+- Owner‑scoped para Tasks/Sprints (replicar patrón de Projects/Goals).
+- Kanban sigue mock visual (sin persistencia de drag).
+- Presencia RT en memoria (mock), no apto multi‑instancia (necesitaría store).
+- Agregar .env.example y script de seed (fixtures).
+- Endpoint /api/auth/me + rehidratación en AuthProvider.
+- Validaciones Zod en handlers API para estandarizar errores.
+- Más pruebas de API (contract) y E2E de flujos completos.
 
 Licencia
 Uso educativo/demostrativo.

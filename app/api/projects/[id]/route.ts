@@ -26,14 +26,23 @@ function requireAuth(req: Request): JwtPayload | null {
 
 // GET: obtener un proyecto
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   await connectDB();
+
+  const user = requireAuth(req);
+  if (!user) {
+    return NextResponse.json(
+      { message: "No autorizado" },
+      { status: 401 }
+    );
+  }
+
   const { id } = await params;
 
   const doc = await Project.findById(id);
-  if (!doc) {
+  if (!doc || String(doc.ownerId) !== user.sub) {
     return NextResponse.json(
       { message: "Proyecto no encontrado" },
       { status: 404 }
@@ -48,6 +57,8 @@ export async function GET(
         key: doc.key,
         ownerId: doc.ownerId,
         members: doc.members ?? [],
+        createdAt: (doc as any)?.createdAt?.toISOString?.() ?? new Date((doc as any)?.createdAt).toISOString(),
+        dueDate: (doc as any)?.dueDate ? new Date((doc as any)?.dueDate).toISOString() : undefined,
       },
     },
     { status: 200 }
@@ -81,17 +92,36 @@ export async function PUT(
     if (typeof patch.key === "string") {
       allowed.key = String(patch.key).toUpperCase();
     }
-    if (typeof patch.ownerId === "string") {
-      allowed.ownerId = String(patch.ownerId);
-    }
     if (Array.isArray(patch.members)) {
       allowed.members = patch.members.map(String);
     }
 
-    const updated = await Project.findByIdAndUpdate(id, allowed, {
-      new: true,
-      runValidators: true,
-    });
+    if (typeof patch.dueDate === "string") {
+      let parsed: Date;
+      if (/^\d{4}-\d{2}-\d{2}$/.test(patch.dueDate)) {
+        const [yy, mm, dd] = patch.dueDate.split("-").map(Number);
+        // Normaliza a mediodía UTC para evitar desfases por zona horaria
+        parsed = new Date(Date.UTC(yy, (mm as number) - 1, dd as number, 12, 0, 0));
+      } else {
+        parsed = new Date(patch.dueDate);
+      }
+      if (isNaN(parsed.getTime())) {
+        return NextResponse.json(
+          { message: "Fecha de entrega inválida" },
+          { status: 400 }
+        );
+      }
+      allowed.dueDate = parsed;
+    }
+
+    const updated = await Project.findOneAndUpdate(
+      { _id: id, ownerId: user.sub },
+      allowed,
+      {
+        new: true,
+        runValidators: true,
+      }
+    );
 
     if (!updated) {
       return NextResponse.json(
@@ -121,6 +151,8 @@ export async function PUT(
           key: updated.key,
           ownerId: updated.ownerId,
           members: updated.members ?? [],
+          createdAt: (updated as any)?.createdAt?.toISOString?.() ?? new Date((updated as any)?.createdAt).toISOString(),
+          dueDate: (updated as any)?.dueDate ? new Date((updated as any)?.dueDate).toISOString() : undefined,
         },
       },
       { status: 200 }
@@ -152,7 +184,7 @@ export async function DELETE(
   const { id } = await params; 
 
   try {
-    const deleted = await Project.findByIdAndDelete(id);
+    const deleted = await Project.findOneAndDelete({ _id: id, ownerId: user.sub });
 
     if (!deleted) {
       return NextResponse.json(

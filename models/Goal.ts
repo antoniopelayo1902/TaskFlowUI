@@ -5,6 +5,7 @@ export interface IGoal {
   progress: number; // 0..100
   projectId?: string;
   ownerId?: string;
+  dueDate?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -15,6 +16,7 @@ const GoalSchema = new Schema<IGoal>(
     progress: { type: Number, required: true, min: 0, max: 100, default: 0 },
     projectId: { type: String },
     ownerId: { type: String },
+    dueDate: { type: Date },
   },
   { timestamps: true }
 );

@@ -24,14 +24,20 @@ function requireAuth(req: Request): JwtPayload | null {
 }
 
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   await connectDB();
+
+  const user = requireAuth(req);
+  if (!user) {
+    return NextResponse.json({ message: "No autorizado" }, { status: 401 });
+  }
+
   const { id } = await params;
 
   const doc = await Goal.findById(id);
-  if (!doc) {
+  if (!doc || String(doc.ownerId) !== user.sub) {
     return NextResponse.json({ message: "Meta no encontrada" }, { status: 404 });
   }
 
@@ -43,6 +49,7 @@ export async function GET(
         progress: typeof doc.progress === "number" ? (doc.progress as number) : 0,
         projectId: typeof doc.projectId === "string" ? (doc.projectId as string) : undefined,
         ownerId: typeof doc.ownerId === "string" ? (doc.ownerId as string) : undefined,
+        dueDate: (doc as any)?.dueDate ? new Date((doc as any)?.dueDate).toISOString() : undefined,
       },
     },
     { status: 200 }
@@ -70,12 +77,32 @@ export async function PUT(
       allowed.progress = Math.max(0, Math.min(100, patch.progress));
     }
     if (typeof patch.projectId === "string") allowed.projectId = patch.projectId;
-    if (typeof patch.ownerId === "string") allowed.ownerId = patch.ownerId;
+    if (typeof patch.dueDate === "string") {
+      let parsed: Date;
+      if (/^\d{4}-\d{2}-\d{2}$/.test(patch.dueDate)) {
+        const [yy, mm, dd] = patch.dueDate.split("-").map(Number);
+        // Normaliza a mediodía UTC para evitar desfases por zona horaria
+        parsed = new Date(Date.UTC(yy, (mm as number) - 1, dd as number, 12, 0, 0));
+      } else {
+        parsed = new Date(patch.dueDate);
+      }
+      if (isNaN(parsed.getTime())) {
+        return NextResponse.json(
+          { message: "Fecha de entrega inválida" },
+          { status: 400 }
+        );
+      }
+      allowed.dueDate = parsed;
+    }
 
-    const updated = await Goal.findByIdAndUpdate(id, allowed, {
-      new: true,
-      runValidators: true,
-    });
+    const updated = await Goal.findOneAndUpdate(
+      { _id: id, ownerId: user.sub },
+      allowed,
+      {
+        new: true,
+        runValidators: true,
+      }
+    );
 
     if (!updated) {
       return NextResponse.json({ message: "Meta no encontrada" }, { status: 404 });
@@ -101,6 +128,7 @@ export async function PUT(
           progress: updated.progress,
           projectId: updated.projectId,
           ownerId: updated.ownerId,
+          dueDate: (updated as any)?.dueDate ? new Date((updated as any)?.dueDate).toISOString() : undefined,
         },
       },
       { status: 200 }
@@ -127,7 +155,7 @@ export async function DELETE(
 
   try {
     const { id } = await params;
-    const deleted = await Goal.findByIdAndDelete(id);
+    const deleted = await Goal.findOneAndDelete({ _id: id, ownerId: user.sub });
 
     if (!deleted) {
       return NextResponse.json({ message: "Meta no encontrada" }, { status: 404 });

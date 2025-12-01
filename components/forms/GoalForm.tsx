@@ -14,6 +14,7 @@ const schema = z.object({
   title: z.string().trim().min(1, { message: "Título requerido" }),
   progress: z.coerce.number().int().min(0, { message: "Mínimo 0" }).max(100, { message: "Máximo 100" }),
   projectId: z.string().optional(),
+  dueDate: z.string().optional(),
 });
 
 type FormInput = z.input<typeof schema>;
@@ -30,8 +31,13 @@ export default function GoalForm({
   const form = useForm<FormInput>({
     resolver: zodResolver(schema),
     defaultValues: initial
-      ? { title: initial.title, progress: initial.progress, projectId: initial.projectId }
-      : { title: "", progress: 0, projectId: "" },
+      ? {
+          title: initial.title,
+          progress: initial.progress,
+          projectId: initial.projectId,
+          dueDate: initial.dueDate ? initial.dueDate.slice(0, 10) : "",
+        }
+      : { title: "", progress: 0, projectId: "", dueDate: "" },
   });
 
   const [saving, setSaving] = React.useState(false);
@@ -63,6 +69,7 @@ export default function GoalForm({
           values.progress === undefined || values.progress === null
             ? 0
             : Number(values.progress),
+        dueDate: values.dueDate && values.dueDate.length ? values.dueDate : undefined,
       };
       let saved: Goal | undefined;
       if (initial) {
@@ -121,6 +128,20 @@ export default function GoalForm({
             ))}
           </select>
         </div>
+      </div>
+
+      <div>
+        <label className="mb-1 block text-sm font-medium">Fecha de entrega</label>
+        <input
+          type="date"
+          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          {...form.register("dueDate")}
+        />
+        {form.formState.errors.dueDate && (
+          <p className="mt-1 text-xs text-red-600">
+            {form.formState.errors.dueDate.message}
+          </p>
+        )}
       </div>
 
       <div className="flex items-center justify-end gap-2">
