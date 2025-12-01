@@ -36,11 +36,13 @@ export async function POST(req: Request) {
 
     const token = signUserToken(user);
 
+    // 🔥 CORREGIDO: agregar avatarUrl al usuario respondido
     const safeUser = {
-      id: (user as any)._id.toString(),
+      id: user._id.toString(),
       name: user.name,
       email: user.email,
       role: user.role,
+      avatarUrl: user.avatarUrl ?? null,   // ← IMPORTANTE
     };
 
     return NextResponse.json({ user: safeUser, token }, { status: 200 });

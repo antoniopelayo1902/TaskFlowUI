@@ -1,15 +1,16 @@
 "use client";
 
 import * as React from "react";
+import Image from "next/image";
 import Breadcrumbs from "@/components/common/Breadcrumbs";
 import { useAuth } from "@/components/providers/AuthProvider";
-import Image from "next/image";
 import { Button } from "@/components/ui/button";
+import { toast } from "@/lib/toast";
 
 export default function ProfilePageClient() {
-  const { user } = useAuth();
+  const { user, token, refreshUser } = useAuth();
 
-  // Lista de imágenes disponibles en /public/images
+  // Lista de imágenes de /public/images
   const avatars = [
     "/images/avatar1.png",
     "/images/avatar2.png",
@@ -23,29 +24,64 @@ export default function ProfilePageClient() {
     "/images/avatar10.png",
   ];
 
-  // Avatar seleccionado temporalmente
-  const [selected, setSelected] = React.useState<string | null>(null);
+  // Estado del avatar seleccionado
+  const [selected, setSelected] = React.useState<string | null>(
+    user?.avatarUrl || null
+  );
+
+  // Guardar avatar
+  async function handleSave() {
+    if (!selected) return;
+
+    console.log("TOKEN EN CLIENTE:", token); // debug
+
+    try {
+      const res = await fetch("/api/profile/avatar", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ avatarUrl: selected }),
+      });
+
+      const data = await res.json();
+      console.log("RESPUESTA BACKEND:", data);
+
+      if (!res.ok) throw new Error(data.message || "Error al guardar avatar");
+
+      toast.success("Foto de perfil actualizada");
+
+      // refrescar datos globales (topbar + sidebar)
+      refreshUser();
+    } catch (err) {
+      console.error("ERROR GUARDANDO AVATAR:", err);
+      toast.destructive("Error al guardar foto");
+    }
+  }
 
   return (
     <div className="space-y-6">
       <Breadcrumbs />
       <h1 className="text-2xl font-bold tracking-tight">Perfil</h1>
 
-      <div className="max-w-xl space-y-4 rounded-lg border bg-card p-4">
+      <div className="max-w-xl space-y-6 rounded-lg border bg-card p-6">
 
         {/* Selección de avatar */}
-        <div className="space-y-2">
-          <label className="mb-1 block text-sm font-medium">
+        <div className="space-y-3">
+          <label className="block text-sm font-medium">
             Seleccionar foto de perfil
           </label>
 
-          <div className="grid grid-cols-5 gap-3">
+          <div className="grid grid-cols-5 gap-4">
             {avatars.map((src) => (
               <div
                 key={src}
                 onClick={() => setSelected(src)}
                 className={`cursor-pointer rounded-full border-2 p-1 transition ${
-                  selected === src ? "border-blue-500" : "border-transparent"
+                  selected === src
+                    ? "border-blue-500 shadow-md"
+                    : "border-transparent"
                 }`}
               >
                 <Image
@@ -59,19 +95,14 @@ export default function ProfilePageClient() {
             ))}
           </div>
 
-          {/* Botón — funcionalidad se agregará en paso 4 */}
-          <Button
-            disabled={!selected}
-            className="mt-2"
-            onClick={() => console.log("Avatar seleccionado:", selected)}
-          >
+          <Button onClick={handleSave} disabled={!selected} className="mt-3">
             Guardar foto
           </Button>
         </div>
 
-        <hr className="my-4" />
+        <hr />
 
-        {/* Nombre */}
+        {/* Info del usuario */}
         <div>
           <label className="mb-1 block text-sm font-medium">Nombre</label>
           <div className="rounded-md border border-input bg-muted/30 px-3 py-2 text-sm">
@@ -79,14 +110,12 @@ export default function ProfilePageClient() {
           </div>
         </div>
 
-        {/* Correo */}
         <div>
           <label className="mb-1 block text-sm font-medium">Correo</label>
           <div className="rounded-md border border-input bg-muted/30 px-3 py-2 text-sm">
             {user?.email ?? "-"}
           </div>
         </div>
-
       </div>
     </div>
   );
