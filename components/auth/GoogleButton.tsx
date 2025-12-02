@@ -8,13 +8,15 @@ import { Button } from "@/components/ui/button";
 export default function GoogleButton() {
   const { loginWithGoogle } = useAuth();
 
+  // Usar popup (sin redirect) para evitar tener que pulsar dos veces.
+  // El modo redirect requiere manejar el código tras volver a / (lo cual
+  // no está implementado en esta app); con popup el código llega de inmediato.
   const login = useGoogleLogin({
     flow: "auth-code",
-    redirect_uri: "http://localhost:3000",
     scope: "openid profile email",
-    onSuccess: async (codeResponse) => {
+    onSuccess: async ({ code }) => {
       try {
-        await loginWithGoogle(codeResponse.code);
+        await loginWithGoogle(code);
       } catch (error) {
         console.error(error);
         toast.destructive("Ocurrió un error al iniciar sesión con Google");
