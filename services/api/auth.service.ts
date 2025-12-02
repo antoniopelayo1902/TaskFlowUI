@@ -8,6 +8,7 @@ export type LoginResponse = {
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000/api";
 
 const TOKEN_KEY = "taskflow_token";
+const USER_KEY = "taskflow_user";
 
 export function setAuthToken(token: string | null) {
   if (typeof window === "undefined") return;
@@ -18,6 +19,23 @@ export function setAuthToken(token: string | null) {
 export function getAuthToken(): string | null {
   if (typeof window === "undefined") return null;
   return localStorage.getItem(TOKEN_KEY);
+}
+
+export function setAuthUser(user: User | null) {
+  if (typeof window === "undefined") return;
+  if (user) localStorage.setItem(USER_KEY, JSON.stringify(user));
+  else localStorage.removeItem(USER_KEY);
+}
+
+export function getAuthUser(): User | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(USER_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as User;
+  } catch {
+    return null;
+  }
 }
 
 export async function loginWithCredentials(
@@ -36,6 +54,7 @@ export async function loginWithCredentials(
 
   const data = (await res.json()) as LoginResponse;
   setAuthToken(data.token);
+  setAuthUser(data.user);
   return data;
 }
 
@@ -56,6 +75,7 @@ export async function registerAccount(
 
   const data = (await res.json()) as LoginResponse;
   setAuthToken(data.token);
+  setAuthUser(data.user);
   return data;
 }
 
@@ -74,5 +94,6 @@ export async function loginWithGoogleAuthCode(
 
   const data = (await res.json()) as LoginResponse;
   setAuthToken(data.token);
+  setAuthUser(data.user);
   return data;
 }

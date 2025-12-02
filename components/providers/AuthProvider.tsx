@@ -10,6 +10,8 @@ import {
   loginWithGoogleAuthCode,
   getAuthToken,
   setAuthToken,
+  getAuthUser,
+  setAuthUser,
 } from "@/services/api/auth.service";
 
 type AuthContextType = {
@@ -32,13 +34,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     try {
-      const saved = getAuthToken();
-      if (saved) {
-        setToken(saved);
+      const savedToken = getAuthToken();
+      if (savedToken) {
+        setToken(savedToken);
+        const savedUser = getAuthUser();
+        if (savedUser) {
+          setUser(savedUser);
+        }
       }
     } catch (e) {
-      console.error("Error leyendo token almacenado:", e);
+      console.error("Error rehidratando sesión:", e);
       setAuthToken(null);
+      setAuthUser(null);
     } finally {
       setLoading(false);
     }
@@ -47,7 +54,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const commonLoginFlow = (u: User, t: string) => {
     setUser(u);
     setToken(t);
-    setAuthToken(t); 
+    setAuthToken(t);
+    setAuthUser(u);
     toast.success("Sesión iniciada");
     router.push("/dashboard");
   };
@@ -98,6 +106,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(true);
     try {
       setAuthToken(null);
+      setAuthUser(null);
       setUser(null);
       setToken(null);
       toast.info("Sesión cerrada");
