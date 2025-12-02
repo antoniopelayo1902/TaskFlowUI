@@ -8,8 +8,8 @@ export interface IUser {
   password?: string;
   role: UserRole;
   provider: "credentials" | "google";
-  googleId?: string;
-  avatarUrl?: string;
+  googleId?: string;    
+  avatarUrl?: string;   
   createdAt: Date;
   updatedAt: Date;
 }
@@ -17,22 +17,13 @@ export interface IUser {
 const UserSchema = new Schema<IUser>(
   {
     name: { type: String, required: true },
-
-    email: {
-      type: String,
-      required: true,
-      unique: true,
-      lowercase: true,
-    },
-
+    email: { type: String, required: true, unique: true, lowercase: true },
     password: { type: String },
-
     role: {
       type: String,
       enum: ["admin", "manager", "developer"],
       default: "developer",
     },
-
     provider: {
       type: String,
       enum: ["credentials", "google"],
@@ -40,12 +31,7 @@ const UserSchema = new Schema<IUser>(
     },
 
     googleId: { type: String },
-
-    // Foto de perfil
-    avatarUrl: {
-      type: String,
-      default: "/images/avatar1.png",
-    },
+    avatarUrl: { type: String },
   },
   { timestamps: true }
 );

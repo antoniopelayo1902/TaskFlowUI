@@ -5,8 +5,6 @@ export interface User {
   name: string;
   email: string;
   role: Role;
-  avatarUrl?: string;
-
 }
 
 export const isAdmin = (user?: User | null) => user?.role === 'admin';
