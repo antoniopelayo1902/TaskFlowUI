@@ -29,22 +29,19 @@ export async function POST(req: Request) {
 
     const user = await User.create({
       name,
-      email: email.toLowerCase(),
+      email,
       password: hashed,
       provider: "credentials",
-      role: "developer",
-      avatarUrl: null, // 🔥 Ya definimos campo inicial (puedes poner default)
+      role: "developer", // rol base
     });
 
     const token = signUserToken(user);
 
-    // 🔥 CORREGIDO: Incluir avatarUrl en la respuesta
     const safeUser = {
-      id: user._id.toString(),
+      id: (user as any)._id.toString(),
       name: user.name,
       email: user.email,
       role: user.role,
-      avatarUrl: user.avatarUrl ?? null,
     };
 
     return NextResponse.json({ user: safeUser, token }, { status: 201 });
