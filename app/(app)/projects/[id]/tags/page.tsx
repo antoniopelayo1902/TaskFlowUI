@@ -4,128 +4,224 @@ import * as React from "react";
 import { useParams } from "next/navigation";
 import Breadcrumbs from "@/components/common/Breadcrumbs";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import TagForm from "@/components/forms/TagForm";
 import EmptyState from "@/components/common/EmptyState";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
-import { uniqueTagsByProject } from "@/services/mock/tasks.service";
+import { fetchTasks, updateTask, type Task } from "@/services/api/tasks.service";
 import { toast } from "@/lib/toast";
+
+function TagChip({
+  tag,
+  onRemove,
+}: {
+  tag: string;
+  onRemove?: () => void;
+}) {
+  return (
+    <span className="inline-flex items-center gap-1 rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+      #{tag}
+      {onRemove && (
+        <button
+          className="ml-1 rounded px-1 text-[10px] hover:bg-muted-foreground/10"
+          onClick={(e) => {
+            e.preventDefault();
+            onRemove();
+          }}
+          aria-label={`Quitar etiqueta ${tag}`}
+          title="Quitar"
+        >
+          ✕
+        </button>
+      )}
+    </span>
+  );
+}
 
 export default function ProjectTagsPage() {
   const params = useParams<{ id: string }>();
   const projectId = (params?.id as string) ?? "p1";
 
-  const [tags, setTags] = React.useState<string[]>([]);
-  const [open, setOpen] = React.useState(false);
-  const [editing, setEditing] = React.useState<{ name: string } | null>(null);
-  const [pendingDelete, setPendingDelete] = React.useState<string | null>(null);
-  const [deleting, setDeleting] = React.useState(false);
+  const [tasks, setTasks] = React.useState<Task[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [pendingClear, setPendingClear] = React.useState<Task | null>(null);
+  const [clearing, setClearing] = React.useState(false);
 
-  React.useEffect(() => {
-    setTags(uniqueTagsByProject(projectId));
+  const load = React.useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await fetchTasks({ projectId });
+      setTasks(data);
+    } catch {
+      toast.destructive("No se pudieron cargar tareas");
+    } finally {
+      setLoading(false);
+    }
   }, [projectId]);
 
-  const onCreate = () => {
-    setEditing(null);
-    setOpen(true);
+  React.useEffect(() => {
+    load();
+  }, [load]);
+
+  const addTag = async (task: Task, tag: string) => {
+    const t = tag.trim();
+    if (!t) return;
+    if (t.length > 24) {
+      toast.destructive("Etiqueta muy larga (máx 24)");
+      return;
+    }
+    // simple validación: letras, números y guiones
+    if (!/^[a-z0-9-]+$/i.test(t)) {
+      toast.destructive("Usa solo letras, números y guiones");
+      return;
+    }
+    const nextTags = Array.from(new Set([...(task.tags ?? []), t]));
+    try {
+      await updateTask(task.id, { tags: nextTags });
+      toast.success(`Etiqueta #${t} agregada`);
+      load();
+    } catch {
+      toast.destructive("No se pudo agregar etiqueta");
+    }
   };
 
-  const onEdit = (name: string) => {
-    setEditing({ name });
-    setOpen(true);
+  const removeTag = async (task: Task, tag: string) => {
+    const nextTags = (task.tags ?? []).filter((x) => x !== tag);
+    try {
+      await updateTask(task.id, { tags: nextTags });
+      toast.info(`Etiqueta #${tag} quitada`);
+      load();
+    } catch {
+      toast.destructive("No se pudo quitar etiqueta");
+    }
   };
 
-  const onSaved = (t: { name: string }) => {
-    setOpen(false);
-    setEditing(null);
-    setTags((prev) => {
-      const next = new Set(prev);
-      if (editing && editing.name !== t.name) {
-        next.delete(editing.name);
-      }
-      next.add(t.name);
-      return Array.from(next).sort((a, b) => a.localeCompare(b));
-    });
-    toast.success(editing ? "Actualizado" : "Se creó correctamente");
+  const clearAllTags = async () => {
+    if (!pendingClear) return;
+    setClearing(true);
+    try {
+      await updateTask(pendingClear.id, { tags: [] });
+      toast.info("Etiquetas eliminadas");
+      setPendingClear(null);
+      load();
+    } catch {
+      toast.destructive("No se pudieron eliminar etiquetas");
+    } finally {
+      setClearing(false);
+    }
   };
 
-  const onDelete = async () => {
-    if (!pendingDelete) return;
-    setDeleting(true);
-
-    setTimeout(() => {
-      setTags((prev) => prev.filter((x) => x !== pendingDelete));
-      toast.destructive("Eliminado", `Etiqueta "${pendingDelete}" eliminada`);
-      setPendingDelete(null);
-      setDeleting(false);
-    }, 250);
-  };
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <Breadcrumbs />
+        <div className="flex min-h-[40vh] items-center justify-center">
+          <div className="size-10 animate-spin rounded-full border-2 border-muted-foreground/20 border-t-muted-foreground" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       <Breadcrumbs />
       <div className="flex flex-col items-start justify-between gap-2 sm:flex-row sm:items-center">
         <h1 className="text-2xl font-bold tracking-tight">Etiquetas</h1>
-        <Button onClick={onCreate}>Crear etiqueta</Button>
+        <p className="text-sm text-muted-foreground">
+          Clasifica tareas agregando o quitando etiquetas
+        </p>
       </div>
 
-      {!tags.length ? (
+      {!tasks.length ? (
         <EmptyState
-          title="Aún no hay etiquetas"
-          description="Crea etiquetas para clasificar tareas (p. ej. bug, ui, alta)."
-          actionLabel="Crear etiqueta"
-          onAction={onCreate}
+          title="Aún no hay tareas"
+          description="Crea una tarea para este proyecto y luego clasifícala con etiquetas."
         />
       ) : (
-        <div className="rounded-lg border bg-card p-4">
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {tags.map((t) => (
-              <div
-                key={t}
-                className="flex items-center justify-between gap-3 rounded border px-3 py-2 text-sm"
-              >
-                <span className="inline-flex items-center gap-2">
-                  <span className="rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                    #{t}
-                  </span>
-                </span>
-                <div className="flex items-center gap-2">
-                  <Button size="sm" variant="outline" onClick={() => onEdit(t)}>
-                    Editar
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => setPendingDelete(t)}>
-                    Eliminar
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
+        <div className="overflow-x-auto rounded-lg border">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50">
+              <tr className="text-left">
+                <th className="px-3 py-2 font-medium">Tarea</th>
+                <th className="px-3 py-2 font-medium">Etiquetas</th>
+                <th className="px-3 py-2 font-medium">Agregar etiqueta</th>
+                <th className="px-3 py-2 font-medium"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {tasks.map((t) => (
+                <tr key={t.id} className="border-t align-top">
+                  <td className="px-3 py-3">
+                    <div className="font-medium">{t.title}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {t.status} • {t.priority}
+                      {t.dueDate ? ` • vence ${new Date(t.dueDate).toLocaleDateString()}` : ""}
+                    </div>
+                  </td>
+                  <td className="px-3 py-3">
+                    <div className="flex flex-wrap gap-2">
+                      {(t.tags ?? []).length ? (
+                        (t.tags ?? []).map((tag) => (
+                          <TagChip key={tag} tag={tag} onRemove={() => removeTag(t, tag)} />
+                        ))
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Sin etiquetas</span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-3 py-3">
+                    <form
+                      className="flex items-center gap-2"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        const form = e.currentTarget as HTMLFormElement & {
+                          tag: { value: string };
+                        };
+                        const value = (form.tag?.value ?? "").trim();
+                        if (value) {
+                          addTag(t, value);
+                          form.tag.value = "";
+                        }
+                      }}
+                    >
+                      <input
+                        name="tag"
+                        placeholder="bug, ui, alta..."
+                        className="h-8 w-40 rounded-md border border-input bg-background px-2 text-xs"
+                      />
+                      <Button type="submit" size="sm">
+                        Agregar
+                      </Button>
+                    </form>
+                  </td>
+                  <td className="px-3 py-3">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setPendingClear(t)}
+                      title="Quitar todas las etiquetas"
+                    >
+                      Limpiar etiquetas
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
-      <Dialog open={open} onOpenChange={(o) => (!o ? setOpen(false) : setOpen(true))}>
-        <DialogContent className="sm:max-w-[480px]">
-          <DialogHeader>
-            <DialogTitle>{editing ? "Editar etiqueta" : "Crear etiqueta"}</DialogTitle>
-          </DialogHeader>
-          <TagForm initial={editing ?? undefined} onSaved={onSaved} />
-        </DialogContent>
-      </Dialog>
-
       <ConfirmDialog
-        open={!!pendingDelete}
-        title="¿Deseas eliminar este registro?"
-        description={pendingDelete ? `Eliminar etiqueta "${pendingDelete}"` : ""}
-        confirmText="Sí, eliminar"
-        cancelText="No"
-        onConfirm={onDelete}
-        onCancel={() => setPendingDelete(null)}
-        loading={deleting}
+        open={!!pendingClear}
+        title="¿Quitar todas las etiquetas?"
+        description={
+          pendingClear
+            ? `Se eliminarán todas las etiquetas de "${pendingClear.title}".`
+            : ""
+        }
+        confirmText="Sí, quitar"
+        cancelText="Cancelar"
+        onConfirm={clearAllTags}
+        onCancel={() => setPendingClear(null)}
+        loading={clearing}
       />
     </div>
   );

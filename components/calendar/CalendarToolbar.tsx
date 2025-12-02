@@ -3,7 +3,7 @@
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 
-type View = "month" | "week" | "day";
+type View = "month" | "week";
 
 export default function CalendarToolbar({
   view,
@@ -37,10 +37,10 @@ export default function CalendarToolbar({
         <Button size="sm" variant="outline" onClick={onToday}>
           Hoy
         </Button>
-        <Button size="sm" variant="outline" onClick={onPrev} aria-label="Mes anterior">
+        <Button size="sm" variant="outline" onClick={onPrev} aria-label={view === "week" ? "Semana anterior" : "Mes anterior"}>
           ←
         </Button>
-        <Button size="sm" variant="outline" onClick={onNext} aria-label="Mes siguiente">
+        <Button size="sm" variant="outline" onClick={onNext} aria-label={view === "week" ? "Semana siguiente" : "Mes siguiente"}>
           →
         </Button>
         <div className="ml-2 text-sm font-medium capitalize">{label}</div>
@@ -60,13 +60,6 @@ export default function CalendarToolbar({
           onClick={() => onViewChange("week")}
         >
           Semana
-        </Button>
-        <Button
-          size="sm"
-          variant={view === "day" ? "default" : "outline"}
-          onClick={() => onViewChange("day")}
-        >
-          Día
         </Button>
       </div>
     </div>

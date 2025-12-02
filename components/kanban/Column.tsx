@@ -1,5 +1,5 @@
 import TaskCard from "@/components/kanban/TaskCard";
-import type { Task } from "@/services/mock/tasks.service";
+import type { Task } from "@/services/api/tasks.service";
 
 export default function Column({
   title,

@@ -59,6 +59,7 @@ export async function GET(
         members: doc.members ?? [],
         createdAt: (doc as any)?.createdAt?.toISOString?.() ?? new Date((doc as any)?.createdAt).toISOString(),
         dueDate: (doc as any)?.dueDate ? new Date((doc as any)?.dueDate).toISOString() : undefined,
+        completed: typeof (doc as any)?.completed === "boolean" ? (((doc as any).completed as boolean)) : false,
       },
     },
     { status: 200 }
@@ -113,6 +114,9 @@ export async function PUT(
       }
       allowed.dueDate = parsed;
     }
+    if (typeof patch.completed === "boolean") {
+      allowed.completed = patch.completed;
+    }
 
     const updated = await Project.findOneAndUpdate(
       { _id: id, ownerId: user.sub },
@@ -153,6 +157,7 @@ export async function PUT(
           members: updated.members ?? [],
           createdAt: (updated as any)?.createdAt?.toISOString?.() ?? new Date((updated as any)?.createdAt).toISOString(),
           dueDate: (updated as any)?.dueDate ? new Date((updated as any)?.dueDate).toISOString() : undefined,
+          completed: typeof (updated as any)?.completed === "boolean" ? (((updated as any).completed as boolean)) : false,
         },
       },
       { status: 200 }

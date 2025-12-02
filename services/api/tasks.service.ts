@@ -43,7 +43,7 @@ export async function fetchTasks(params?: {
 
   const res = await fetch(url.toString(), {
     method: "GET",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     cache: "no-store",
   });
 

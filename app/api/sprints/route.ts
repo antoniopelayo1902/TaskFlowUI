@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { Sprint } from "@/models/Sprint";
+import { Project } from "@/models/Project";
 import { verifyUserToken } from "@/lib/jwt";
 
 type JwtPayload = {
@@ -26,11 +27,29 @@ function requireAuth(req: Request): JwtPayload | null {
 export async function GET(req: Request) {
   await connectDB();
 
+  // Requerir auth para owner-scope
+  const user = requireAuth(req);
+  if (!user) {
+    return NextResponse.json({ message: "No autorizado" }, { status: 401 });
+  }
+
   const { searchParams } = new URL(req.url);
   const projectId = searchParams.get("projectId") ?? undefined;
 
+  // Obtener proyectos del owner
+  const ownerProjects = await Project.find({ ownerId: user.sub }).select({ _id: 1 });
+  const allowedIds = new Set(ownerProjects.map((p: any) => String(p._id)));
+
   const filter: Record<string, any> = {};
-  if (projectId) filter.projectId = projectId;
+  if (projectId) {
+    // Solo permitir projectId si pertenece al owner
+    if (!allowedIds.has(String(projectId))) {
+      return NextResponse.json({ sprints: [] }, { status: 200 });
+    }
+    filter.projectId = String(projectId);
+  } else {
+    filter.projectId = { $in: Array.from(allowedIds) };
+  }
 
   const docs = await Sprint.find(filter).sort({ startDate: -1 });
 
@@ -41,6 +60,7 @@ export async function GET(req: Request) {
     startDate: d.startDate ? new Date(d.startDate).toISOString() : undefined,
     endDate: d.endDate ? new Date(d.endDate).toISOString() : undefined,
     goal: typeof d.goal === "string" ? (d.goal as string) : undefined,
+    completed: typeof d.completed === "boolean" ? (d.completed as boolean) : false,
   }));
 
   return NextResponse.json({ sprints }, { status: 200 });
@@ -57,7 +77,7 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { projectId, name, startDate, endDate, goal } = body ?? {};
+    const { projectId, name, startDate, endDate, goal, completed } = body ?? {};
 
     if (!projectId || !name || !startDate || !endDate) {
       return NextResponse.json(
@@ -66,12 +86,19 @@ export async function POST(req: Request) {
       );
     }
 
+    // Validar que el proyecto pertenezca al owner
+    const proj = await Project.findOne({ _id: String(projectId), ownerId: user.sub });
+    if (!proj) {
+      return NextResponse.json({ message: "Proyecto no accesible" }, { status: 403 });
+    }
+
     const doc = await Sprint.create({
       projectId: String(projectId),
       name: String(name).trim(),
       startDate: new Date(startDate),
       endDate: new Date(endDate),
       goal: typeof goal === "string" ? goal : undefined,
+      completed: typeof completed === "boolean" ? completed : false,
     });
 
     return NextResponse.json(
@@ -83,6 +110,7 @@ export async function POST(req: Request) {
           startDate: doc.startDate ? new Date(doc.startDate).toISOString() : undefined,
           endDate: doc.endDate ? new Date(doc.endDate).toISOString() : undefined,
           goal: doc.goal,
+          completed: typeof (doc as any).completed === "boolean" ? ((doc as any).completed as boolean) : false,
         },
       },
       { status: 201 }

@@ -7,6 +7,7 @@ export type Sprint = {
   startDate: string; // ISO
   endDate: string;   // ISO
   goal?: string;
+  completed?: boolean;
 };
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000/api";
@@ -24,7 +25,7 @@ export async function fetchSprints(params?: { projectId?: string }): Promise<Spr
 
   const res = await fetch(url.toString(), {
     method: "GET",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     cache: "no-store",
   });
 

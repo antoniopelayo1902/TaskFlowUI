@@ -7,6 +7,7 @@ import {
   listStatuses,
   listPriorities,
   deleteTask,
+  updateTask,
 } from "@/services/api/tasks.service";
 import { Button } from "@/components/ui/button";
 import EmptyState from "@/components/common/EmptyState";
@@ -150,6 +151,23 @@ export default function TasksList({ projectId, myUserId, onCreate, onEdit }: Pro
                 <td className="px-3 py-2">{t.points ?? "-"}</td>
                 <td className="px-3 py-2">
                   <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant={t.status === "Done" ? "outline" : "default"}
+                      onClick={async () => {
+                        try {
+                          const next = t.status === "Done" ? "Todo" : "Done";
+                          await updateTask(t.id, { status: next });
+                          await load();
+                          toast.info(next === "Done" ? "Tarea finalizada" : "Tarea reabierta");
+                        } catch {
+                          toast.destructive("No se pudo actualizar la tarea");
+                        }
+                      }}
+                      title={t.status === "Done" ? "Reabrir tarea" : "Marcar como finalizada"}
+                    >
+                      {t.status === "Done" ? "Reabrir" : "Finalizar"}
+                    </Button>
                     <Button size="sm" variant="outline" onClick={() => onEdit?.(t)}>
                       Editar
                     </Button>
