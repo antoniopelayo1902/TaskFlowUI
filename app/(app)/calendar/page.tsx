@@ -11,7 +11,7 @@ import { fetchSprints } from "@/services/api/sprints.service";
 import type { CalendarEvent } from "@/components/calendar/CalendarView";
 import { Button } from "@/components/ui/button";
 
-type View = "month" | "week" | "day";
+type View = "month" | "week";
 
 export default function CalendarPage() {
   const [view, setView] = React.useState<View>("month");
@@ -23,12 +23,20 @@ export default function CalendarPage() {
   }, []);
 
   const onPrev = React.useCallback(() => {
-    setCurrent((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1));
-  }, []);
+    setCurrent((d) =>
+      view === "week"
+        ? new Date(d.getFullYear(), d.getMonth(), d.getDate() - 7)
+        : new Date(d.getFullYear(), d.getMonth() - 1, 1)
+    );
+  }, [view]);
 
   const onNext = React.useCallback(() => {
-    setCurrent((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1));
-  }, []);
+    setCurrent((d) =>
+      view === "week"
+        ? new Date(d.getFullYear(), d.getMonth(), d.getDate() + 7)
+        : new Date(d.getFullYear(), d.getMonth() + 1, 1)
+    );
+  }, [view]);
 
   const load = React.useCallback(async () => {
     try {
