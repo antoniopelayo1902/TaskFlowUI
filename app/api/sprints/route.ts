@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { Sprint } from "@/models/Sprint";
+import { Project } from "@/models/Project";
 import { verifyUserToken } from "@/lib/jwt";
 
 type JwtPayload = {
@@ -26,11 +27,29 @@ function requireAuth(req: Request): JwtPayload | null {
 export async function GET(req: Request) {
   await connectDB();
 
+  // Requerir auth para owner-scope
+  const user = requireAuth(req);
+  if (!user) {
+    return NextResponse.json({ message: "No autorizado" }, { status: 401 });
+  }
+
   const { searchParams } = new URL(req.url);
   const projectId = searchParams.get("projectId") ?? undefined;
 
+  // Obtener proyectos del owner
+  const ownerProjects = await Project.find({ ownerId: user.sub }).select({ _id: 1 });
+  const allowedIds = new Set(ownerProjects.map((p: any) => String(p._id)));
+
   const filter: Record<string, any> = {};
-  if (projectId) filter.projectId = projectId;
+  if (projectId) {
+    // Solo permitir projectId si pertenece al owner
+    if (!allowedIds.has(String(projectId))) {
+      return NextResponse.json({ sprints: [] }, { status: 200 });
+    }
+    filter.projectId = String(projectId);
+  } else {
+    filter.projectId = { $in: Array.from(allowedIds) };
+  }
 
   const docs = await Sprint.find(filter).sort({ startDate: -1 });
 
@@ -65,6 +84,12 @@ export async function POST(req: Request) {
         { message: "Faltan campos requeridos (projectId, name, startDate, endDate)" },
         { status: 400 }
       );
+    }
+
+    // Validar que el proyecto pertenezca al owner
+    const proj = await Project.findOne({ _id: String(projectId), ownerId: user.sub });
+    if (!proj) {
+      return NextResponse.json({ message: "Proyecto no accesible" }, { status: 403 });
     }
 
     const doc = await Sprint.create({

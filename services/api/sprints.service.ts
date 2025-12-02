@@ -25,7 +25,7 @@ export async function fetchSprints(params?: { projectId?: string }): Promise<Spr
 
   const res = await fetch(url.toString(), {
     method: "GET",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     cache: "no-store",
   });
 

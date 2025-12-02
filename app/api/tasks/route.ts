@@ -27,13 +27,17 @@ function requireAuth(req: Request): JwtPayload | null {
 export async function GET(req: Request) {
   await connectDB();
 
+  const user = requireAuth(req);
+  if (!user) {
+    return NextResponse.json({ message: "No autorizado" }, { status: 401 });
+  }
+
   const { searchParams } = new URL(req.url);
   const projectId = searchParams.get("projectId") ?? undefined;
-  const assigneeId = searchParams.get("assigneeId") ?? undefined;
 
-  const filter: Record<string, any> = {};
+  // Owner-scope: solo ver tareas creadas por el usuario (assignee = creador)
+  const filter: Record<string, any> = { assigneeId: user.sub };
   if (projectId) filter.projectId = projectId;
-  if (assigneeId) filter.assigneeId = assigneeId;
 
   const docs = await Task.find(filter).sort({ createdAt: -1 });
 
@@ -86,12 +90,13 @@ export async function POST(req: Request) {
     const allowedStatuses = new Set(["Todo", "Doing", "Done"]);
     const allowedPriorities = new Set(["High", "Medium", "Low"]);
 
+    // Forzar asignación al creador (no permitir escoger otro usuario)
     const doc = await Task.create({
       projectId: String(projectId),
       title: String(title).trim(),
       status: allowedStatuses.has(status) ? status : "Todo",
       priority: allowedPriorities.has(priority) ? priority : "Medium",
-      assigneeId: assigneeId ? String(assigneeId) : undefined,
+      assigneeId: user.sub, // fuerza asignación al creador
       dueDate: dueDate ? new Date(dueDate) : undefined,
       points: typeof points === "number" ? points : undefined,
       tags: Array.isArray(tags) ? tags.map(String) : [],

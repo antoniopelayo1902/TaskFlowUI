@@ -40,12 +40,17 @@ export default function CalendarPage() {
 
   const load = React.useCallback(async () => {
     try {
-      const [ps, gs, ts, ss] = await Promise.all([
+      const [psRes, gsRes, tsRes, ssRes] = await Promise.allSettled([
         fetchProjects(),
         fetchGoals(),
         fetchTasks(),
         fetchSprints(),
       ]);
+
+      const ps = psRes.status === "fulfilled" ? psRes.value : [];
+      const gs = gsRes.status === "fulfilled" ? gsRes.value : [];
+      const ts = tsRes.status === "fulfilled" ? tsRes.value : [];
+      const ss = ssRes.status === "fulfilled" ? ssRes.value : [];
 
       const projById = new Map(ps.map((p) => [p.id, p]));
       const sprintById = new Map(ss.map((s) => [s.id, s]));
