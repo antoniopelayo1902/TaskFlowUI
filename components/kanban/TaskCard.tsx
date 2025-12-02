@@ -1,4 +1,4 @@
-import type { Task } from "@/services/mock/tasks.service";
+import type { Task } from "@/services/api/tasks.service";
 import { cn } from "@/lib/utils";
 
 const priorityColor: Record<NonNullable<Task["priority"]>, string> = {

@@ -6,6 +6,8 @@ import CalendarToolbar from "@/components/calendar/CalendarToolbar";
 import CalendarView from "@/components/calendar/CalendarView";
 import { fetchProjects } from "@/services/api/projects.service";
 import { fetchGoals } from "@/services/api/goals.service";
+import { fetchTasks } from "@/services/api/tasks.service";
+import { fetchSprints } from "@/services/api/sprints.service";
 import type { CalendarEvent } from "@/components/calendar/CalendarView";
 
 type View = "month" | "week" | "day";
@@ -29,9 +31,13 @@ export default function CalendarPage() {
 
   React.useEffect(() => {
     let mounted = true;
-    Promise.all([fetchProjects(), fetchGoals()])
-      .then(([ps, gs]) => {
+    Promise.all([fetchProjects(), fetchGoals(), fetchTasks(), fetchSprints()])
+      .then(([ps, gs, ts, ss]) => {
         if (!mounted) return;
+
+        const projById = new Map(ps.map((p) => [p.id, p]));
+        const sprintById = new Map(ss.map((s) => [s.id, s]));
+
         const projectEvents: CalendarEvent[] = ps
           .filter((p) => !!p.dueDate)
           .map((p) => ({
@@ -39,6 +45,7 @@ export default function CalendarPage() {
             title: `Proyecto: ${p.name}`,
             href: `/projects/${p.id}/kanban`,
           }));
+
         const goalEvents: CalendarEvent[] = gs
           .filter((g) => !!g.dueDate)
           .map((g) => ({
@@ -46,7 +53,25 @@ export default function CalendarPage() {
             title: `Meta: ${g.title}`,
             href: `/goals`,
           }));
-        setEvents([...projectEvents, ...goalEvents]);
+
+        const taskEvents: CalendarEvent[] = ts
+          .filter((t: any) => !!t.dueDate)
+          .map((t: any) => {
+            const projectName = projById.get(t.projectId)?.name ?? t.projectId;
+            const sprintTag: string | undefined = (t.tags ?? []).find((x: string) =>
+              x.startsWith("sprint-")
+            );
+            const sprintId = sprintTag ? sprintTag.slice(7) : undefined;
+            const sprintName = sprintId ? sprintById.get(sprintId)?.name : undefined;
+
+            return {
+              date: (t.dueDate as string).slice(0, 10),
+              title: `Tarea: ${t.title} · Proyecto: ${projectName}${sprintName ? " · Sprint: " + sprintName : ""}`,
+              href: `/projects/${t.projectId}/list`,
+            };
+          });
+
+        setEvents([...projectEvents, ...goalEvents, ...taskEvents]);
       })
       .catch(() => {});
     return () => {
