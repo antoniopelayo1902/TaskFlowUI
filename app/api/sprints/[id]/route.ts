@@ -43,6 +43,7 @@ export async function GET(
         startDate: doc.startDate ? new Date(doc.startDate).toISOString() : undefined,
         endDate: doc.endDate ? new Date(doc.endDate).toISOString() : undefined,
         goal: typeof doc.goal === "string" ? (doc.goal as string) : undefined,
+        completed: typeof (doc as any)?.completed === "boolean" ? ((doc as any).completed as boolean) : false,
       },
     },
     { status: 200 }
@@ -70,6 +71,7 @@ export async function PUT(
     if (typeof patch.startDate === "string") allowed.startDate = new Date(patch.startDate);
     if (typeof patch.endDate === "string") allowed.endDate = new Date(patch.endDate);
     if (typeof patch.goal === "string") allowed.goal = patch.goal;
+    if (typeof patch.completed === "boolean") allowed.completed = patch.completed;
 
     const updated = await Sprint.findByIdAndUpdate(id, allowed, {
       new: true,
@@ -89,6 +91,7 @@ export async function PUT(
           startDate: updated.startDate ? new Date(updated.startDate).toISOString() : undefined,
           endDate: updated.endDate ? new Date(updated.endDate).toISOString() : undefined,
           goal: updated.goal,
+          completed: typeof (updated as any)?.completed === "boolean" ? (((updated as any).completed as boolean)) : false,
         },
       },
       { status: 200 }

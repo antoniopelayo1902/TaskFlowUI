@@ -16,6 +16,7 @@ import {
   fetchGoals,
   type Goal,
   deleteGoal,
+  updateGoal,
 } from "@/services/api/goals.service";
 import { fetchProjects, type Project } from "@/services/api/projects.service";
 import { toast } from "@/lib/toast";
@@ -121,6 +122,27 @@ export default function GoalsPageClient() {
                     <td className="px-3 py-2">{p ? `${p.name} (${p.key})` : "-"}</td>
                     <td className="px-3 py-2">
                       <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant={(g.progress ?? 0) >= 100 ? "outline" : "default"}
+                          onClick={async () => {
+                            try {
+                              const next = (g.progress ?? 0) >= 100 ? 0 : 100;
+                              await updateGoal(g.id, { progress: next });
+                              await load();
+                              if (next >= 100) {
+                                toast.success("Meta finalizada");
+                              } else {
+                                toast.info("Meta reabierta");
+                              }
+                            } catch {
+                              toast.destructive("No se pudo actualizar la meta");
+                            }
+                          }}
+                          title={(g.progress ?? 0) >= 100 ? "Reabrir meta" : "Marcar como finalizada"}
+                        >
+                          {(g.progress ?? 0) >= 100 ? "Reabrir" : "Finalizar"}
+                        </Button>
                         <Button size="sm" variant="outline" onClick={() => onEdit(g)}>
                           Editar
                         </Button>

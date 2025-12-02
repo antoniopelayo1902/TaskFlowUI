@@ -7,6 +7,7 @@ export type CalendarEvent = {
   date: string | Date;
   title: string;
   href?: string;
+  completed?: boolean;
 };
 
 export default function CalendarView({
@@ -85,7 +86,8 @@ export default function CalendarView({
   for (const evt of monthEvents) {
     const day = (evt as LocalEvt).__d.getDate(); // 1..31 local
     if (!byDay.has(day)) byDay.set(day, []);
-    byDay.get(day)!.push({ date: evt.date, title: evt.title, href: evt.href });
+    const { __d, ...keep } = evt as any;
+    byDay.get(day)!.push(keep as CalendarEvent);
   }
 
   const weekDays = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
@@ -124,18 +126,26 @@ export default function CalendarView({
                     <Link
                       key={idx}
                       href={e.href}
-                      className="truncate rounded bg-primary/10 px-2 py-1 text-[11px] hover:bg-primary/20"
+                      className={`truncate rounded px-2 py-1 text-[11px] ${
+                        e.completed
+                          ? "bg-emerald-500/15 text-emerald-700 line-through border border-emerald-500/30"
+                          : "bg-primary/10 hover:bg-primary/20"
+                      }`}
                       title={e.title}
                     >
-                      {e.title}
+                      {e.completed ? "✓ " : ""}{e.title}
                     </Link>
                   ) : (
                     <div
                       key={idx}
-                      className="truncate rounded bg-primary/10 px-2 py-1 text-[11px]"
+                      className={`truncate rounded px-2 py-1 text-[11px] ${
+                        e.completed
+                          ? "bg-emerald-500/15 text-emerald-700 line-through border border-emerald-500/30"
+                          : "bg-primary/10"
+                      }`}
                       title={e.title}
                     >
-                      {e.title}
+                      {e.completed ? "✓ " : ""}{e.title}
                     </div>
                   )
                 )}

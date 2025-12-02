@@ -6,6 +6,7 @@ export interface ISprint {
   startDate: Date;
   endDate: Date;
   goal?: string;
+  completed?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -17,6 +18,7 @@ const SprintSchema = new Schema<ISprint>(
     startDate: { type: Date, required: true },
     endDate: { type: Date, required: true },
     goal: { type: String },
+    completed: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

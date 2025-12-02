@@ -7,6 +7,7 @@ export type Sprint = {
   startDate: string; // ISO
   endDate: string;   // ISO
   goal?: string;
+  completed?: boolean;
 };
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000/api";

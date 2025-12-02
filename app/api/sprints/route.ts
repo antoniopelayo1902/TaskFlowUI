@@ -41,6 +41,7 @@ export async function GET(req: Request) {
     startDate: d.startDate ? new Date(d.startDate).toISOString() : undefined,
     endDate: d.endDate ? new Date(d.endDate).toISOString() : undefined,
     goal: typeof d.goal === "string" ? (d.goal as string) : undefined,
+    completed: typeof d.completed === "boolean" ? (d.completed as boolean) : false,
   }));
 
   return NextResponse.json({ sprints }, { status: 200 });
@@ -57,7 +58,7 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { projectId, name, startDate, endDate, goal } = body ?? {};
+    const { projectId, name, startDate, endDate, goal, completed } = body ?? {};
 
     if (!projectId || !name || !startDate || !endDate) {
       return NextResponse.json(
@@ -72,6 +73,7 @@ export async function POST(req: Request) {
       startDate: new Date(startDate),
       endDate: new Date(endDate),
       goal: typeof goal === "string" ? goal : undefined,
+      completed: typeof completed === "boolean" ? completed : false,
     });
 
     return NextResponse.json(
@@ -83,6 +85,7 @@ export async function POST(req: Request) {
           startDate: doc.startDate ? new Date(doc.startDate).toISOString() : undefined,
           endDate: doc.endDate ? new Date(doc.endDate).toISOString() : undefined,
           goal: doc.goal,
+          completed: typeof (doc as any).completed === "boolean" ? ((doc as any).completed as boolean) : false,
         },
       },
       { status: 201 }

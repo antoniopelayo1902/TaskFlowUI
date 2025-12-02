@@ -17,6 +17,7 @@ import {
   fetchSprints,
   type Sprint,
   deleteSprint,
+  updateSprint,
 } from "@/services/api/sprints.service";
 import {
   fetchTasks,
@@ -171,6 +172,29 @@ export default function ProjectSprintsPage() {
                   <td className="px-3 py-2">{s.goal ?? "-"}</td>
                   <td className="px-3 py-2">
                     <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant={s.completed ? "outline" : "default"}
+                        onClick={async () => {
+                          try {
+                            await updateSprint(s.id, { completed: !s.completed });
+                            await loadSprints();
+                            try {
+                              window.dispatchEvent(new Event("calendar:refresh"));
+                            } catch {}
+                            if (!s.completed) {
+                              toast.success("Sprint finalizado");
+                            } else {
+                              toast.info("Sprint reabierto");
+                            }
+                          } catch {
+                            toast.destructive("No se pudo actualizar el sprint");
+                          }
+                        }}
+                        title={s.completed ? "Reabrir sprint" : "Marcar como finalizado"}
+                      >
+                        {s.completed ? "Reabrir" : "Finalizar"}
+                      </Button>
                       <Button size="sm" variant="outline" onClick={() => onEdit(s)}>
                         Editar
                       </Button>

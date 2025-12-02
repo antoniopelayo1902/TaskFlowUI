@@ -40,6 +40,7 @@ export async function GET(req: Request) {
     members: (d.members ?? []) as string[],
     createdAt: d.createdAt?.toISOString?.() ?? new Date(d.createdAt).toISOString(),
     dueDate: d.dueDate ? new Date(d.dueDate as any).toISOString() : undefined,
+    completed: typeof d.completed === "boolean" ? (d.completed as boolean) : false,
   }));
 
   return NextResponse.json({ projects }, { status: 200 });
@@ -111,6 +112,7 @@ export async function POST(req: Request) {
           members: created.members ?? [],
           createdAt: created.createdAt?.toISOString?.() ?? new Date(created.createdAt as any).toISOString(),
           dueDate: created.dueDate ? new Date(created.dueDate as any).toISOString() : undefined,
+          completed: typeof (created as any).completed === "boolean" ? ((created as any).completed as boolean) : false,
         },
       },
       { status: 201 }

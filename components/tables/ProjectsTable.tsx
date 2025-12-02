@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { fetchProjects, deleteProject, type Project } from "@/services/api/projects.service";
+import { fetchProjects, deleteProject, updateProject, type Project } from "@/services/api/projects.service";
 import { fetchUsers, type SimpleUser } from "@/services/api/users-public.service";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
 import EmptyState from "@/components/common/EmptyState";
@@ -129,6 +129,29 @@ export default function ProjectsTable({ onCreate, onEdit, refreshAt }: Props) {
                   <td className="px-3 py-2">{owner ? owner.name : "-"}</td>
                   <td className="px-3 py-2">
                     <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant={p.completed ? "outline" : "default"}
+                        onClick={async () => {
+                          try {
+                            await updateProject(p.id, { completed: !p.completed });
+                            await load();
+                            try {
+                              window.dispatchEvent(new Event("calendar:refresh"));
+                            } catch {}
+                            if (!p.completed) {
+                              toast.success("Proyecto finalizado");
+                            } else {
+                              toast.info("Proyecto reabierto");
+                            }
+                          } catch {
+                            toast.destructive("No se pudo actualizar el estado");
+                          }
+                        }}
+                        title={p.completed ? "Reabrir proyecto" : "Marcar como finalizado"}
+                      >
+                        {p.completed ? "Reabrir" : "Finalizar"}
+                      </Button>
                       <Button
                         size="sm"
                         variant="outline"
