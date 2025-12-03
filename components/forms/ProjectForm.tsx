@@ -33,7 +33,15 @@ export default function ProjectForm({
   onSaved?: (project: Project) => void;
   initial?: Project | null;
 }) {
-  const { user } = useAuth();
+  // Permitir usar ProjectForm en tests sin envolver con AuthProvider:
+  // si no hay contexto, user será null (solo afecta UI no-crítica)
+  let authCtx: ReturnType<typeof useAuth> | null = null;
+  try {
+    authCtx = useAuth();
+  } catch {
+    authCtx = null;
+  }
+  const user = authCtx?.user ?? null;
   const canAssign = isAdmin(user) || isManager(user);
   const [assignable, setAssignable] = React.useState<SimpleUser[]>([]);
   const [q, setQ] = React.useState("");
