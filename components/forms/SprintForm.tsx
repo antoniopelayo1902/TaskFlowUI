@@ -45,8 +45,8 @@ export default function SprintForm({
     defaultValues: initial
       ? {
           name: initial.name,
-          startDate: initial.startDate,
-          endDate: initial.endDate,
+          startDate: initial.startDate ? initial.startDate.slice(0, 10) : "",
+          endDate: initial.endDate ? initial.endDate.slice(0, 10) : "",
           goal: initial.goal ?? "",
           projectId: initial.projectId,
         }

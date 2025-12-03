@@ -10,13 +10,18 @@ import { fetchTasks } from "@/services/api/tasks.service";
 import { fetchSprints } from "@/services/api/sprints.service";
 import type { CalendarEvent } from "@/components/calendar/CalendarView";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/components/providers/AuthProvider";
+import { isAdmin, isManager } from "@/lib/roles";
+import { fetchUsers, type SimpleUser } from "@/services/api/users-public.service";
 
 type View = "month" | "week";
 
 export default function CalendarPage() {
+  const { user } = useAuth();
   const [view, setView] = React.useState<View>("month");
   const [events, setEvents] = React.useState<CalendarEvent[]>([]);
   const [current, setCurrent] = React.useState<Date>(new Date());
+  const [assigneeMap, setAssigneeMap] = React.useState<Record<string, string>>({});
 
   const onToday = React.useCallback(() => {
     setCurrent(new Date());
@@ -77,15 +82,18 @@ export default function CalendarPage() {
         .filter((t: any) => !!t.dueDate)
         .map((t: any) => {
           const projectName = projById.get(t.projectId)?.name ?? t.projectId;
-          const sprintTag: string | undefined = (t.tags ?? []).find((x: string) =>
-            x.startsWith("sprint-")
-          );
+          const sprintTag: string | undefined = (t.tags ?? []).find((x: string) => x.startsWith("sprint-"));
           const sprintId = sprintTag ? sprintTag.slice(7) : undefined;
           const sprintName = sprintId ? sprintById.get(sprintId)?.name : undefined;
 
+          const assigned =
+            isAdmin(user) && t.assigneeId
+              ? assigneeMap[String(t.assigneeId)] ?? String(t.assigneeId).slice(0, 6)
+              : undefined;
+
           return {
             date: (t.dueDate as string).slice(0, 10),
-            title: `Tarea: ${t.title} · Proyecto: ${projectName}${sprintName ? " · Sprint: " + sprintName : ""}`,
+            title: `Tarea: ${t.title} · Proyecto: ${projectName}${sprintName ? " · Sprint: " + sprintName : ""}${assigned ? " · Asignado: " + assigned : ""}`,
             href: `/projects/${t.projectId}/list`,
             completed: t.status === "Done",
           };
@@ -138,6 +146,32 @@ export default function CalendarPage() {
       window.removeEventListener("calendar:refresh", onCalendarRefresh as any);
     };
   }, [load]);
+
+  // Para admin/manager, cargar mapa de asignados id -> "Nombre (email)" una vez
+  React.useEffect(() => {
+    let mounted = true;
+    async function loadUsersForRole() {
+      if (!(isAdmin(user) || isManager(user))) {
+        setAssigneeMap({});
+        return;
+      }
+      try {
+        const list = await fetchUsers({ role: "developer" });
+        if (!mounted) return;
+        const map: Record<string, string> = {};
+        list.forEach((u: SimpleUser) => {
+          map[u.id] = `${u.name} (${u.email})`;
+        });
+        setAssigneeMap(map);
+      } catch {
+        if (mounted) setAssigneeMap({});
+      }
+    }
+    loadUsersForRole();
+    return () => {
+      mounted = false;
+    };
+  }, [user]);
 
   return (
     <div className="space-y-6">

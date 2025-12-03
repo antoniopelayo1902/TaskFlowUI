@@ -17,6 +17,7 @@ import { toast } from "@/lib/toast";
 export default function AdminUsersPageClient() {
   const [open, setOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<User | null>(null);
+  const [refreshToken, setRefreshToken] = React.useState(0);
 
   const onCreate = () => {
     setEditing(null);
@@ -32,6 +33,8 @@ export default function AdminUsersPageClient() {
     toast.success(editing ? "Actualizado" : "Se creó correctamente");
     setOpen(false);
     setEditing(null);
+    // Dispara recarga de la tabla (refetch)
+    setRefreshToken((x) => x + 1);
   };
 
   return (
@@ -42,7 +45,7 @@ export default function AdminUsersPageClient() {
         <Button onClick={onCreate}>Crear usuario</Button>
       </div>
 
-      <UsersTable onCreate={onCreate} onEdit={onEdit} />
+      <UsersTable onCreate={onCreate} onEdit={onEdit} refreshToken={refreshToken} />
 
       <Dialog open={open} onOpenChange={(o) => (!o ? setOpen(false) : setOpen(true))}>
         <DialogContent className="sm:max-w-[560px]">

@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { Project } from "@/models/Project";
+import { User } from "@/models/User";
 import { verifyUserToken } from "@/lib/jwt";
 import { getIO } from "@/lib/socket-server";
+import { isAssignableDeveloperForManager } from "@/lib/permissions";
 
 type JwtPayload = {
   sub: string;
@@ -49,6 +51,8 @@ export async function GET(
     );
   }
 
+  const owner = await User.findById(String(doc.ownerId), { name: 1, email: 1 }).lean();
+
   return NextResponse.json(
     {
       project: {
@@ -56,6 +60,8 @@ export async function GET(
         name: doc.name,
         key: doc.key,
         ownerId: doc.ownerId,
+        ownerName: (owner as any)?.name,
+        ownerEmail: (owner as any)?.email,
         members: doc.members ?? [],
         createdAt: (doc as any)?.createdAt?.toISOString?.() ?? new Date((doc as any)?.createdAt).toISOString(),
         dueDate: (doc as any)?.dueDate ? new Date((doc as any)?.dueDate).toISOString() : undefined,
@@ -86,6 +92,13 @@ export async function PUT(
   try {
     const patch = await req.json();
 
+    // Si intenta cambiar completed, exigir rol manager|admin (owner-scope ya se valida en el filtro de update)
+    if (typeof patch.completed === "boolean") {
+      if (user.role !== "manager" && user.role !== "admin") {
+        return NextResponse.json({ message: "No autorizado" }, { status: 403 });
+      }
+    }
+
     const allowed: Record<string, any> = {};
     if (typeof patch.name === "string") {
       allowed.name = patch.name.trim();
@@ -94,7 +107,24 @@ export async function PUT(
       allowed.key = String(patch.key).toUpperCase();
     }
     if (Array.isArray(patch.members)) {
-      allowed.members = patch.members.map(String);
+      // Sanitizar miembros:
+      // - Manager: solo developers de su mismo dominio
+      // - Admin: cualquier developer
+      // - Developer: ignora intento de cambiar miembros
+      if (user.role === "manager" || user.role === "admin") {
+        const rawMembers = Array.isArray(patch.members) ? (patch.members as any[]).map((m: any) => String(m)) : [];
+        const unique: string[] = Array.from(new Set<string>(rawMembers));
+        const allowedMembers: string[] = [];
+        for (const uid of unique) {
+          try {
+            const ok = await isAssignableDeveloperForManager(user as any, String(uid));
+            if (ok) allowedMembers.push(String(uid));
+          } catch {
+            // ignorar ids inválidos
+          }
+        }
+        allowed.members = allowedMembers;
+      }
     }
 
     if (typeof patch.dueDate === "string") {

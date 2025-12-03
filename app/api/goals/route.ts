@@ -4,6 +4,7 @@ import { Goal } from "@/models/Goal";
 import { Project } from "@/models/Project";
 import { verifyUserToken } from "@/lib/jwt";
 import { getIO } from "@/lib/socket-server";
+import { participatesInProject } from "@/lib/permissions";
 
 type JwtPayload = {
   sub: string;
@@ -78,11 +79,11 @@ export async function POST(req: Request) {
         ? Math.max(0, Math.min(100, progress))
         : 0;
 
-    // Validate project ownership if provided
+    // Validación de proyecto si se especifica: permitir owner o cualquiera que participe en el proyecto
     let projectIdStr: string | undefined;
     if (projectId) {
-      const proj = await Project.findOne({ _id: String(projectId), ownerId: user.sub });
-      if (!proj) {
+      const canUse = await participatesInProject(user.sub, String(projectId));
+      if (!canUse) {
         return NextResponse.json({ message: "Proyecto no accesible" }, { status: 403 });
       }
       projectIdStr = String(projectId);

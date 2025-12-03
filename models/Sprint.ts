@@ -7,6 +7,7 @@ export interface ISprint {
   endDate: Date;
   goal?: string;
   completed?: boolean;
+  members?: string[]; // usuarios asignados al sprint
   createdAt: Date;
   updatedAt: Date;
 }
@@ -19,6 +20,7 @@ const SprintSchema = new Schema<ISprint>(
     endDate: { type: Date, required: true },
     goal: { type: String },
     completed: { type: Boolean, default: false },
+    members: { type: [String], default: [] },
   },
   { timestamps: true }
 );

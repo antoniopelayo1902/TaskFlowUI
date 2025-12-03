@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/dialog";
 
 interface ProjectFile {
-  _id: string;
+  id: string;
   key: string;
   url: string;
   originalName: string;
@@ -43,7 +43,7 @@ export default function FilesTabClient({ projectId }: { projectId: string }) {
     if (!projectId) return;
 
     try {
-      const res = await fetch(`/api/projects/${projectId}/files`, {
+      const res = await fetch(`/api/files?projectId=${projectId}`, {
         cache: "no-store",
       });
 
@@ -96,8 +96,9 @@ export default function FilesTabClient({ projectId }: { projectId: string }) {
     try {
       const formData = new FormData();
       formData.append("file", selectedFile);
+      formData.append("projectId", projectId);
 
-      const res = await fetch(`/api/projects/${projectId}/files`, {
+      const res = await fetch(`/api/files`, {
         method: "POST",
         body: formData,
       });
@@ -120,7 +121,7 @@ export default function FilesTabClient({ projectId }: { projectId: string }) {
     setDeletingId(fileId);
     try {
       const res = await fetch(
-        `/api/projects/${projectId}/files/${fileId}`,
+        `/api/files/${fileId}?projectId=${projectId}`,
         { method: "DELETE" }
       );
 
@@ -202,7 +203,7 @@ export default function FilesTabClient({ projectId }: { projectId: string }) {
           <ul className="space-y-2">
             {files.map((file) => (
               <li
-                key={file._id}
+                key={file.id}
                 className="flex justify-between items-center border rounded-md px-4 py-2"
               >
                 <div>
@@ -223,10 +224,10 @@ export default function FilesTabClient({ projectId }: { projectId: string }) {
                 <Button
                   variant="destructive"
                   size="sm"
-                  disabled={deletingId === file._id}
+                  disabled={deletingId === file.id}
                   onClick={() => setFileToDelete(file)}
                 >
-                  {deletingId === file._id ? "Eliminando..." : "Eliminar"}
+                  {deletingId === file.id ? "Eliminando..." : "Eliminar"}
                 </Button>
               </li>
             ))}
@@ -263,7 +264,7 @@ export default function FilesTabClient({ projectId }: { projectId: string }) {
               variant="destructive"
               disabled={!fileToDelete}
               onClick={() =>
-                fileToDelete && handleDeleteConfirmed(fileToDelete._id)
+                fileToDelete && handleDeleteConfirmed(fileToDelete.id)
               }
             >
               Eliminar

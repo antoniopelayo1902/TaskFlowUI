@@ -11,7 +11,11 @@ export default function Topbar() {
       <div className="text-sm text-muted-foreground">
         {user ? (
           <span>
-            Conectado como <span className="font-medium text-foreground">{user.name}</span>
+            Conectado como{" "}
+            <span className="font-medium text-foreground">{user.name}</span>
+            <span className="ml-2 rounded border px-2 py-0.5 text-xs uppercase text-muted-foreground">
+              {user.role}
+            </span>
           </span>
         ) : (
           <span>Visitante</span>

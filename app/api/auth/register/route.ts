@@ -27,12 +27,24 @@ export async function POST(req: Request) {
 
     const hashed = await bcrypt.hash(password, 10);
 
+    // Asignación de rol por defecto y allowlist opcional de dominios para "manager"
+    let assignedRole: "admin" | "manager" | "developer" = "developer";
+    try {
+      const allowlist = (process.env.ALLOWLIST_MANAGER_DOMAINS ?? "")
+        .split(",")
+        .map((s) => s.trim().toLowerCase())
+        .filter(Boolean);
+      const domain = (email.split("@")[1] || "").toLowerCase();
+      if (domain && allowlist.includes(domain)) {
+        assignedRole = "manager";
+      }
+    } catch {}
     const user = await User.create({
       name,
       email,
       password: hashed,
       provider: "credentials",
-      role: "developer", // rol base
+      role: assignedRole,
     });
 
     const token = signUserToken(user);

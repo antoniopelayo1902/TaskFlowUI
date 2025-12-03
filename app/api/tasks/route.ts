@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { Task } from "@/models/Task";
+import { Project } from "@/models/Project";
 import { verifyUserToken } from "@/lib/jwt";
 import { getIO } from "@/lib/socket-server";
+import { isAssignableDeveloperForManager } from "@/lib/permissions";
 
 type JwtPayload = {
   sub: string;
@@ -35,9 +37,27 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const projectId = searchParams.get("projectId") ?? undefined;
 
-  // Owner-scope: solo ver tareas creadas por el usuario (assignee = creador)
-  const filter: Record<string, any> = { assigneeId: user.sub };
-  if (projectId) filter.projectId = projectId;
+  let filter: Record<string, any> = {};
+  if (user.role === "manager" || user.role === "admin") {
+    // Tareas de proyectos del owner (manager/admin) + opcionalmente propias
+    const owned = await Project.find({ ownerId: user.sub }).select({ _id: 1 }).lean();
+    const ownedIds = new Set(owned.map((p: any) => String(p._id)));
+    if (projectId) {
+      // restringir al project solicitado si es del owner; si no, devolver vacío
+      if (ownedIds.has(String(projectId))) {
+        filter.projectId = String(projectId);
+      } else {
+        // aún así, permitir ver sus propias tareas en ese proyecto si existieran (seguridad conservadora)
+        filter = { projectId: String(projectId), assigneeId: user.sub };
+      }
+    } else {
+      filter = { $or: [{ projectId: { $in: Array.from(ownedIds) } }, { assigneeId: user.sub }] };
+    }
+  } else {
+    // Developer: solo sus tareas
+    filter = { assigneeId: user.sub };
+    if (projectId) filter.projectId = projectId;
+  }
 
   const docs = await Task.find(filter).sort({ createdAt: -1 });
 
@@ -90,13 +110,29 @@ export async function POST(req: Request) {
     const allowedStatuses = new Set(["Todo", "Doing", "Done"]);
     const allowedPriorities = new Set(["High", "Medium", "Low"]);
 
-    // Forzar asignación al creador (no permitir escoger otro usuario)
+    // Determinar asignación:
+    // - Developer: siempre a sí mismo (user.sub)
+    // - Manager: puede asignar solo a developers de su mismo dominio
+    // - Admin: puede asignar a cualquier developer
+    let finalAssigneeId: string = user.sub;
+    if (typeof assigneeId === "string" && (user.role === "manager" || user.role === "admin")) {
+      try {
+        const ok = await isAssignableDeveloperForManager(user, String(assigneeId));
+        if (ok) {
+          finalAssigneeId = String(assigneeId);
+        }
+      } catch {
+        // Silenciar y dejar asignación por defecto (self)
+      }
+    }
+
+    // Asignación controlada según rol (ver lógica arriba)
     const doc = await Task.create({
       projectId: String(projectId),
       title: String(title).trim(),
       status: allowedStatuses.has(status) ? status : "Todo",
       priority: allowedPriorities.has(priority) ? priority : "Medium",
-      assigneeId: user.sub, // fuerza asignación al creador
+      assigneeId: finalAssigneeId,
       dueDate: dueDate ? new Date(dueDate) : undefined,
       points: typeof points === "number" ? points : undefined,
       tags: Array.isArray(tags) ? tags.map(String) : [],

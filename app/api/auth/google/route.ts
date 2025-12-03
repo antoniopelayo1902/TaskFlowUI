@@ -85,11 +85,22 @@ export async function POST(req: Request) {
     let user = await User.findOne({ email });
 
     if (!user) {
+      let assignedRole: "admin" | "manager" | "developer" = "developer";
+      try {
+        const allowlist = (process.env.ALLOWLIST_MANAGER_DOMAINS ?? "")
+          .split(",")
+          .map((s) => s.trim().toLowerCase())
+          .filter(Boolean);
+        const domain = (email.split("@")[1] || "").toLowerCase();
+        if (domain && allowlist.includes(domain)) {
+          assignedRole = "manager";
+        }
+      } catch {}
       user = await User.create({
         name: name ?? email,
         email,
         provider: "google",
-        role: "developer", 
+        role: assignedRole,
         googleId: sub,
         avatarUrl: picture,
       });

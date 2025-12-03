@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { Sprint } from "@/models/Sprint";
+import { Project } from "@/models/Project";
 import { verifyUserToken } from "@/lib/jwt";
 
 type JwtPayload = {
@@ -63,6 +64,22 @@ export async function PUT(
 
   try {
     const { id } = await params;
+
+    // Cargar sprint para validar permisos (owner-scope del proyecto)
+    const existing = await Sprint.findById(id);
+    if (!existing) {
+      return NextResponse.json({ message: "Sprint no encontrado" }, { status: 404 });
+    }
+
+    // Requiere rol manager|admin Y ser owner del proyecto
+    if (user.role !== "manager" && user.role !== "admin") {
+      return NextResponse.json({ message: "No autorizado" }, { status: 403 });
+    }
+    const project = await Project.findOne({ _id: String(existing.projectId), ownerId: user.sub }).select({ _id: 1 });
+    if (!project) {
+      return NextResponse.json({ message: "No autorizado" }, { status: 403 });
+    }
+
     const patch = await req.json();
 
     const allowed: Record<string, any> = {};
@@ -118,6 +135,21 @@ export async function DELETE(
 
   try {
     const { id } = await params;
+
+    const existing = await Sprint.findById(id);
+    if (!existing) {
+      return NextResponse.json({ message: "Sprint no encontrado" }, { status: 404 });
+    }
+
+    // Requiere rol manager|admin Y ser owner del proyecto
+    if (user.role !== "manager" && user.role !== "admin") {
+      return NextResponse.json({ message: "No autorizado" }, { status: 403 });
+    }
+    const project = await Project.findOne({ _id: String(existing.projectId), ownerId: user.sub }).select({ _id: 1 });
+    if (!project) {
+      return NextResponse.json({ message: "No autorizado" }, { status: 403 });
+    }
+
     const deleted = await Sprint.findByIdAndDelete(id);
 
     if (!deleted) {

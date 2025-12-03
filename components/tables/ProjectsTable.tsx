@@ -8,6 +8,8 @@ import EmptyState from "@/components/common/EmptyState";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/lib/toast";
 import Link from "next/link";
+import { useAuth } from "@/components/providers/AuthProvider";
+import { isDeveloper } from "@/lib/roles";
 
 type Props = {
   onCreate?: () => void;
@@ -16,6 +18,7 @@ type Props = {
 };
 
 export default function ProjectsTable({ onCreate, onEdit, refreshAt }: Props) {
+  const { user } = useAuth();
   const [projects, setProjects] = React.useState<Project[]>([]);
   const [users, setUsers] = React.useState<SimpleUser[]>([]);
   const [q, setQ] = React.useState("");
@@ -72,10 +75,13 @@ export default function ProjectsTable({ onCreate, onEdit, refreshAt }: Props) {
   if (!projects.length) {
     return (
       <EmptyState
-        title="Aún no hay proyectos"
-        description="Crea tu primer proyecto para comenzar a organizar el trabajo."
-        actionLabel="Crear proyecto"
-        onAction={onCreate}
+        title={isDeveloper(user) ? "No tienes proyectos asignados" : "Aún no hay proyectos"}
+        description={
+          isDeveloper(user)
+            ? "Cuando te asignen a un proyecto, lo verás aquí."
+            : "Crea tu primer proyecto para comenzar a organizar el trabajo."
+        }
+        {...(!isDeveloper(user) ? { actionLabel: "Crear proyecto", onAction: onCreate } : {})}
       />
     );
   }
@@ -101,7 +107,7 @@ export default function ProjectsTable({ onCreate, onEdit, refreshAt }: Props) {
           <Button variant="outline" onClick={() => load()}>
             Refrescar
           </Button>
-          <Button onClick={onCreate}>Crear</Button>
+          {!isDeveloper(user) && <Button onClick={onCreate}>Crear</Button>}
         </div>
       </div>
 
@@ -126,7 +132,25 @@ export default function ProjectsTable({ onCreate, onEdit, refreshAt }: Props) {
                     </Link>
                   </td>
                   <td className="px-3 py-2">{p.key}</td>
-                  <td className="px-3 py-2">{owner ? owner.name : "-"}</td>
+                  <td className="px-3 py-2">
+                    {p.ownerName ? (
+                      <span>
+                        {p.ownerName}
+                        {p.ownerEmail ? (
+                          <span className="text-muted-foreground"> ({p.ownerEmail})</span>
+                        ) : null}
+                      </span>
+                    ) : owner ? (
+                      <span>
+                        {owner.name}
+                        {owner.email ? (
+                          <span className="text-muted-foreground"> ({owner.email})</span>
+                        ) : null}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">-</span>
+                    )}
+                  </td>
                   <td className="px-3 py-2">
                     <div className="flex items-center gap-2">
                       <Button
@@ -176,9 +200,12 @@ export default function ProjectsTable({ onCreate, onEdit, refreshAt }: Props) {
                 <td colSpan={4} className="px-3 py-8">
                   <EmptyState
                     title="Sin resultados"
-                    description="Intenta limpiar filtros o crea un nuevo proyecto."
-                    actionLabel="Crear proyecto"
-                    onAction={onCreate}
+                    description={
+                      isDeveloper(user)
+                        ? "Intenta limpiar filtros."
+                        : "Intenta limpiar filtros o crea un nuevo proyecto."
+                    }
+                    {...(!isDeveloper(user) ? { actionLabel: "Crear proyecto", onAction: onCreate } : {})}
                   />
                 </td>
               </tr>
