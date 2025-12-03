@@ -269,5 +269,85 @@ E2E (Cypress)
 - Validaciones Zod en handlers API para estandarizar errores.
 - Más pruebas de contrato y E2E de flujos completos.
 
+- Capacidades por rol
+
+Admin
+- Usuarios:
+  - Accede a /admin/users para listar y administrar usuarios (cambiar roles con validaciones).
+  - En /api/users puede filtrar por role=developer y domain=empresa.com.
+- Proyectos:
+  - Crea proyectos (queda como owner).
+  - Ve proyectos donde es owner o miembro.
+  - Puede finalizar/reabrir y editar proyectos que posee.
+  - Puede seleccionar miembros libremente (cualquier developer).
+- Sprints:
+  - Crear/editar/finalizar sprints de proyectos que posee.
+  - Al crear un sprint, sus miembros heredan los members del proyecto.
+- Tareas:
+  - Ve tareas de proyectos que posee (y sus propias).
+  - Puede crear tareas y asignarlas a cualquier developer.
+  - Puede editar cualquier tarea de proyectos que posee (título, estado, prioridad, puntos, etiquetas, descripción, fecha, asignado).
+- Kanban:
+  - Puede mover el estado de cualquier tarea de proyectos que posee (drag & drop con persistencia).
+  - Visualiza “Asignado: Nombre (email)” en cada tarjeta.
+- Calendario:
+  - Ve las tareas del equipo de sus proyectos y “Asignado: Nombre (email)” en el título de los eventos de tarea.
+- Archivos:
+  - Subir/listar/eliminar archivos en proyectos donde participa (por owner/membresía/participación).
+- Metas (Goals):
+  - Puede crear metas propias en proyectos donde participa (participatesInProject); ve sus metas.
+
+Manager
+- Usuarios:
+  - Ve developers únicamente de su mismo dominio (el servidor filtra por dominio del email).
+- Proyectos:
+  - Crea proyectos (queda como owner).
+  - Ve proyectos donde es owner o miembro.
+  - Puede finalizar/reabrir y editar proyectos que posee.
+  - Puede seleccionar miembros, pero solo developers de su dominio (saneado server‑side).
+- Sprints:
+  - Crear/editar/finalizar sprints de proyectos que posee.
+  - Al crear, los sprints heredan los miembros del proyecto.
+- Tareas:
+  - Ve tareas de proyectos que posee (y sus propias).
+  - Puede crear tareas y asignarlas a developers de su mismo dominio (validado server‑side).
+  - Puede editar cualquier tarea de proyectos que posee (título, estado, prioridad, puntos, etiquetas, descripción, fecha, asignado).
+- Kanban:
+  - Puede mover el estado de tareas de proyectos que posee (persistente).
+  - Visualiza “Asignado: Nombre (email)” en las tarjetas.
+- Calendario:
+  - Ve las tareas del equipo de sus proyectos y “Asignado: Nombre (email)” en eventos de tarea.
+- Archivos:
+  - Subir/listar/eliminar archivos en proyectos donde participa.
+- Metas (Goals):
+  - Puede crear metas propias en proyectos donde participa; ve sus metas.
+
+Developer
+- Usuarios:
+  - No puede listar usuarios (403 en /api/users).
+- Proyectos:
+  - Ve proyectos donde participa:
+    - Ser miembro del proyecto, o
+    - Estar en members de algún sprint del proyecto, o
+    - Tener tareas asignadas en ese proyecto.
+  - No crea proyectos (la UI oculta el botón “Crear”).
+- Sprints:
+  - Ve sprints de proyectos donde participa y sprints que lo incluyan en members.
+  - No crea/edita sprints.
+- Tareas:
+  - Ve solo sus tareas.
+  - Puede crear tareas (se asignan a sí mismo automáticamente).
+  - Puede editar sus propias tareas:
+    - Título, estado (Todo/Doing/Done), prioridad, puntos, etiquetas (tags), descripción, fecha (dueDate).
+    - No puede cambiar el assignee ni editar tareas de otros.
+- Kanban:
+  - Puede mover el estado de sus propias tareas (drag & drop persistente).
+- Calendario:
+  - Ve sus tareas y eventos de proyectos/sprints donde participa (sin “Asignado: Nombre”).
+- Archivos:
+  - Subir/listar/eliminar archivos en proyectos donde participa.
+- Metas (Goals):
+  - Puede crear metas propias en proyectos donde participa; ve sus metas.
+
 ## Licencia
 Uso educativo/demostrativo.
