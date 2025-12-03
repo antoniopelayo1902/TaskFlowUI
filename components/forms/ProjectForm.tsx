@@ -36,6 +36,9 @@ export default function ProjectForm({
   const { user } = useAuth();
   const canAssign = isAdmin(user) || isManager(user);
   const [assignable, setAssignable] = React.useState<SimpleUser[]>([]);
+  const [q, setQ] = React.useState("");
+  const [domain, setDomain] = React.useState("");
+  const [onlyDev, setOnlyDev] = React.useState(true);
 
   const form = useForm<FormInput>({
     resolver: zodResolver(schema),
@@ -166,24 +169,128 @@ export default function ProjectForm({
         </div>
 
         {canAssign ? (
-          <div>
+          <div className="space-y-2">
             <label className="mb-1 block text-sm font-medium">
-              Miembros del proyecto (solo developers de tu dominio)
+              Miembros del proyecto
             </label>
-            <select
-              multiple
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              {...form.register("members")}
-              size={Math.min(8, Math.max(3, assignable.length))}
-            >
-              {assignable.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.name} ({u.email})
-                </option>
-              ))}
-            </select>
+
+            {/* Controles de ayuda (búsqueda local y filtros para admin) */}
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Buscar por nombre o correo..."
+                className="h-9 w-64 rounded-md border border-input bg-background px-3 text-sm"
+              />
+              {isAdmin(user) && (
+                <>
+                  <input
+                    value={domain}
+                    onChange={(e) => setDomain(e.target.value)}
+                    placeholder="Filtrar dominio (ej. empresa.com)"
+                    className="h-9 w-60 rounded-md border border-input bg-background px-3 text-sm"
+                  />
+                  <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      checked={onlyDev}
+                      onChange={(e) => setOnlyDev(e.target.checked)}
+                    />
+                    Solo developers
+                  </label>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const list = await fetchUsers({
+                          role: onlyDev ? "developer" : undefined,
+                          domain: domain || undefined,
+                        });
+                        setAssignable(list);
+                      } catch {
+                        setAssignable([]);
+                      }
+                    }}
+                    className="h-9 rounded-md border px-3 text-sm"
+                  >
+                    Aplicar filtros
+                  </button>
+                </>
+              )}
+            </div>
+
+            {/* Acciones rápidas */}
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <button
+                type="button"
+                className="rounded border px-2 py-1"
+                onClick={() => {
+                  const filtered = assignable.filter((u) => {
+                    const term = q.trim().toLowerCase();
+                    const matches =
+                      !term ||
+                      u.name.toLowerCase().includes(term) ||
+                      u.email.toLowerCase().includes(term);
+                    return matches;
+                  });
+                  form.setValue(
+                    "members",
+                    filtered.map((u) => u.id),
+                    { shouldDirty: true, shouldValidate: true }
+                  );
+                }}
+              >
+                Seleccionar todos (filtrados)
+              </button>
+              <button
+                type="button"
+                className="rounded border px-2 py-1"
+                onClick={() =>
+                  form.setValue("members", [], {
+                    shouldDirty: true,
+                    shouldValidate: true,
+                  })
+                }
+              >
+                Limpiar selección
+              </button>
+              <span>
+                Seleccionados: {(form.watch("members") as string[] | undefined)?.length ?? 0}
+              </span>
+            </div>
+
+            {/* Lista de checkboxes (sin Ctrl/Cmd) */}
+            <div className="max-h-56 overflow-auto rounded-md border">
+              <ul className="divide-y">
+                {assignable
+                  .filter((u) => {
+                    const term = q.trim().toLowerCase();
+                    return (
+                      !term ||
+                      u.name.toLowerCase().includes(term) ||
+                      u.email.toLowerCase().includes(term)
+                    );
+                  })
+                  .map((u) => (
+                    <li key={u.id} className="flex items-center gap-2 p-2">
+                      <input
+                        type="checkbox"
+                        value={u.id}
+                        {...form.register("members")}
+                        className="h-4 w-4"
+                      />
+                      <span className="text-sm">
+                        {u.name} <span className="text-muted-foreground">({u.email})</span>
+                      </span>
+                    </li>
+                  ))}
+                {assignable.length === 0 && (
+                  <li className="p-3 text-sm text-muted-foreground">No hay usuarios disponibles.</li>
+                )}
+              </ul>
+            </div>
             <p className="mt-1 text-xs text-muted-foreground">
-              Mantén Ctrl/Cmd para seleccionar múltiples usuarios. El backend aplica un filtrado de seguridad.
+              Los miembros elegidos también serán asignados al sprint cuando lo crees (herencia desde proyecto).
             </p>
           </div>
         ) : null}

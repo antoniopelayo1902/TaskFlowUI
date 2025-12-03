@@ -22,8 +22,12 @@ function authHeaders(): HeadersInit {
  * - Manager: solo developers de su mismo dominio (servidor filtra)
  * - Developer: 403 (no autorizado)
  */
-export async function fetchUsers(): Promise<SimpleUser[]> {
-  const res = await fetch(`${BASE}/users`, {
+export async function fetchUsers(params?: { role?: "developer"; domain?: string }): Promise<SimpleUser[]> {
+  const url = new URL(`${BASE}/users`);
+  if (params?.role) url.searchParams.set("role", params.role);
+  if (params?.domain) url.searchParams.set("domain", params.domain);
+
+  const res = await fetch(url.toString(), {
     method: "GET",
     headers: authHeaders(),
     cache: "no-store",

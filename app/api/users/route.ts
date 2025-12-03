@@ -25,11 +25,24 @@ export async function GET(req: Request) {
     return NextResponse.json({ message: "No autorizado" }, { status: 403 });
   }
 
+  const { searchParams } = new URL(req.url);
+  const queryRole = searchParams.get("role");
+  const queryDomain = searchParams.get("domain");
+
   const mongoFilter: Record<string, any> = {};
+  // Filtro por rol/dominio para manager (servidor decide)
   if (filterInfo.role) mongoFilter.role = filterInfo.role;
   if (filterInfo.domain) {
-    // emails que terminan con @domain
     mongoFilter.email = { $regex: new RegExp(`@${filterInfo.domain}$`, "i") };
+  }
+  // Si es admin, permitir filtros opcionales por rol y dominio desde la query
+  if (requester.role === "admin") {
+    if (queryRole === "developer") {
+      mongoFilter.role = "developer";
+    }
+    if (queryDomain && queryDomain.trim().length) {
+      mongoFilter.email = { $regex: new RegExp(`@${queryDomain.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") };
+    }
   }
 
   const docs = await User.find(mongoFilter, { name: 1, email: 1, role: 1 })
