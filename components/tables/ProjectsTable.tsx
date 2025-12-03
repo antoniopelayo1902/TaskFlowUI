@@ -30,13 +30,19 @@ export default function ProjectsTable({ onCreate, onEdit, refreshAt }: Props) {
 
   const load = React.useCallback(async () => {
     try {
-      const [ps, us] = await Promise.all([fetchProjects(), fetchUsers()]);
-      setProjects(ps);
-      setUsers(us);
+      if (isDeveloper(user)) {
+        const ps = await fetchProjects();
+        setProjects(ps);
+        setUsers([]);
+      } else {
+        const [ps, us] = await Promise.all([fetchProjects(), fetchUsers()]);
+        setProjects(ps);
+        setUsers(us);
+      }
     } catch {
       toast.destructive("No se pudieron cargar proyectos");
     }
-  }, []);
+  }, [user]);
 
   React.useEffect(() => {
     load();
@@ -118,7 +124,7 @@ export default function ProjectsTable({ onCreate, onEdit, refreshAt }: Props) {
               <th className="px-3 py-2 font-medium">Proyecto</th>
               <th className="px-3 py-2 font-medium">Clave</th>
               <th className="px-3 py-2 font-medium">Owner</th>
-              <th className="px-3 py-2 font-medium"></th>
+              {!isDeveloper(user) && <th className="px-3 py-2 font-medium"></th>}
             </tr>
           </thead>
           <tbody>
@@ -151,47 +157,49 @@ export default function ProjectsTable({ onCreate, onEdit, refreshAt }: Props) {
                       <span className="text-muted-foreground">-</span>
                     )}
                   </td>
-                  <td className="px-3 py-2">
-                    <div className="flex items-center gap-2">
-                      <Button
-                        size="sm"
-                        variant={p.completed ? "outline" : "default"}
-                        onClick={async () => {
-                          try {
-                            await updateProject(p.id, { completed: !p.completed });
-                            await load();
+                  {!isDeveloper(user) && (
+                    <td className="px-3 py-2">
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant={p.completed ? "outline" : "default"}
+                          onClick={async () => {
                             try {
-                              window.dispatchEvent(new Event("calendar:refresh"));
-                            } catch {}
-                            if (!p.completed) {
-                              toast.success("Proyecto finalizado");
-                            } else {
-                              toast.info("Proyecto reabierto");
+                              await updateProject(p.id, { completed: !p.completed });
+                              await load();
+                              try {
+                                window.dispatchEvent(new Event("calendar:refresh"));
+                              } catch {}
+                              if (!p.completed) {
+                                toast.success("Proyecto finalizado");
+                              } else {
+                                toast.info("Proyecto reabierto");
+                              }
+                            } catch {
+                              toast.destructive("No se pudo actualizar el estado");
                             }
-                          } catch {
-                            toast.destructive("No se pudo actualizar el estado");
-                          }
-                        }}
-                        title={p.completed ? "Reabrir proyecto" : "Marcar como finalizado"}
-                      >
-                        {p.completed ? "Reabrir" : "Finalizar"}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => onEdit?.(p)}
-                      >
-                        Editar
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setPendingDelete(p)}
-                      >
-                        Eliminar
-                      </Button>
-                    </div>
-                  </td>
+                          }}
+                          title={p.completed ? "Reabrir proyecto" : "Marcar como finalizado"}
+                        >
+                          {p.completed ? "Reabrir" : "Finalizar"}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => onEdit?.(p)}
+                        >
+                          Editar
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setPendingDelete(p)}
+                        >
+                          Eliminar
+                        </Button>
+                      </div>
+                    </td>
+                  )}
                 </tr>
               );
             })}

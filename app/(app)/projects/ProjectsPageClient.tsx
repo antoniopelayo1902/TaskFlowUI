@@ -13,11 +13,14 @@ import {
 import ProjectForm from "@/components/forms/ProjectForm";
 import type { Project } from "@/services/api/projects.service";
 import { toast } from "@/lib/toast";
+import { useAuth } from "@/components/providers/AuthProvider";
+import { isDeveloper } from "@/lib/roles";
 
 export default function ProjectsPageClient() {
   const [open, setOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<Project | null>(null);
   const [refreshTick, setRefreshTick] = React.useState(0);
+  const { user } = useAuth();
 
   const onCreate = () => {
     setEditing(null);
@@ -41,19 +44,21 @@ export default function ProjectsPageClient() {
       <Breadcrumbs />
       <div className="flex flex-col items-start justify-between gap-2 sm:flex-row sm:items-center">
         <h1 className="text-2xl font-bold tracking-tight">Proyectos</h1>
-        <Button onClick={onCreate}>Crear proyecto</Button>
+        {!isDeveloper(user) && <Button onClick={onCreate}>Crear proyecto</Button>}
       </div>
 
       <ProjectsTable onCreate={onCreate} onEdit={onEdit} refreshAt={refreshTick} />
 
-      <Dialog open={open} onOpenChange={(o) => (!o ? setOpen(false) : setOpen(true))}>
-        <DialogContent className="sm:max-w-[640px]">
-          <DialogHeader>
-            <DialogTitle>{editing ? "Editar proyecto" : "Crear proyecto"}</DialogTitle>
-          </DialogHeader>
-          <ProjectForm initial={editing ?? undefined} onSaved={onSaved} />
-        </DialogContent>
-      </Dialog>
+      {!isDeveloper(user) && (
+        <Dialog open={open} onOpenChange={(o) => (!o ? setOpen(false) : setOpen(true))}>
+          <DialogContent className="sm:max-w-[640px]">
+            <DialogHeader>
+              <DialogTitle>{editing ? "Editar proyecto" : "Crear proyecto"}</DialogTitle>
+            </DialogHeader>
+            <ProjectForm initial={editing ?? undefined} onSaved={onSaved} />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
