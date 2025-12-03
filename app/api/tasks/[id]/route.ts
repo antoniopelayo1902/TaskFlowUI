@@ -3,6 +3,7 @@ import { connectDB } from "@/lib/db";
 import { Task } from "@/models/Task";
 import { verifyUserToken } from "@/lib/jwt";
 import { getIO } from "@/lib/socket-server";
+import { canEditAnyTaskInProject, canEditOwnTask, isAssignableDeveloperForManager } from "@/lib/permissions";
 
 type JwtPayload = {
   sub: string;
@@ -69,16 +70,45 @@ export async function PUT(
     const { id } = await params;
     const patch = await req.json();
 
+    const existing = await Task.findById(id);
+    if (!existing) {
+      return NextResponse.json({ message: "Tarea no encontrada" }, { status: 404 });
+    }
+
+    const isProjectWideEditor = await canEditAnyTaskInProject(user, String(existing.projectId));
+    const isOwnEditor = canEditOwnTask(user, { assigneeId: String(existing.assigneeId ?? "") });
+
+    if (!isProjectWideEditor && !isOwnEditor) {
+      return NextResponse.json({ message: "No autorizado" }, { status: 403 });
+    }
+
     const allowed: Record<string, any> = {};
-    if (typeof patch.projectId === "string") allowed.projectId = patch.projectId;
+    // Campos comunes
     if (typeof patch.title === "string") allowed.title = patch.title.trim();
     if (typeof patch.status === "string") allowed.status = patch.status;
     if (typeof patch.priority === "string") allowed.priority = patch.priority;
-    if (typeof patch.assigneeId === "string") allowed.assigneeId = patch.assigneeId;
     if (typeof patch.dueDate === "string") allowed.dueDate = new Date(patch.dueDate);
     if (typeof patch.points === "number") allowed.points = patch.points;
-    if (Array.isArray(patch.tags)) allowed.tags = patch.tags.map(String);
     if (typeof patch.description === "string") allowed.description = patch.description;
+
+    // Campos restringidos a manager/admin (owner del proyecto)
+    if (isProjectWideEditor) {
+      if (Array.isArray(patch.tags)) allowed.tags = patch.tags.map(String);
+
+      if (typeof patch.assigneeId === "string") {
+        // manager: solo developers de su dominio; admin: cualquier developer
+        const ok = await isAssignableDeveloperForManager(user, String(patch.assigneeId));
+        if (!ok) {
+          return NextResponse.json({ message: "Assignee no permitido" }, { status: 400 });
+        }
+        allowed.assigneeId = String(patch.assigneeId);
+      }
+    } else {
+      // Developer (solo su tarea): NO puede cambiar tags ni assigneeId
+      if (typeof patch.assigneeId === "string" || Array.isArray(patch.tags)) {
+        return NextResponse.json({ message: "Operación no permitida" }, { status: 403 });
+      }
+    }
 
     const updated = await Task.findByIdAndUpdate(id, allowed, {
       new: true,

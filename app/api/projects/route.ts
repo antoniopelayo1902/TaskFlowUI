@@ -3,6 +3,7 @@ import { connectDB } from "@/lib/db";
 import { Project } from "@/models/Project";
 import { verifyUserToken } from "@/lib/jwt";
 import { getIO } from "@/lib/socket-server";
+import { isAssignableDeveloperForManager } from "@/lib/permissions";
 
 type JwtPayload = {
   sub: string;
@@ -31,7 +32,10 @@ export async function GET(req: Request) {
     return NextResponse.json({ message: "No autorizado" }, { status: 401 });
   }
 
-  const docs = await Project.find({ ownerId: user.sub }).sort({ createdAt: -1 });
+  // Mostrar proyectos donde el usuario es owner o miembro
+  const docs = await Project.find({
+    $or: [{ ownerId: user.sub }, { members: user.sub }],
+  }).sort({ createdAt: -1 });
   const projects = docs.map((d: any) => ({
     id: d._id.toString(),
     name: d.name as string,
@@ -83,11 +87,30 @@ export async function POST(req: Request) {
       due = parsed;
     }
 
+    // Sanitizar miembros del proyecto según rol:
+    // - Manager: solo developers de su mismo dominio
+    // - Admin: cualquier developer
+    // - Developer: no puede establecer miembros
+    let sanitizedMembers: string[] = [];
+    if (Array.isArray(members) && (user.role === "manager" || user.role === "admin")) {
+      const unique = Array.from(new Set(members.map((m: any) => String(m))));
+      const allowed: string[] = [];
+      for (const uid of unique) {
+        try {
+          const ok = await isAssignableDeveloperForManager(user as any, uid);
+          if (ok) allowed.push(uid);
+        } catch {
+          // ignorar ids inválidos
+        }
+      }
+      sanitizedMembers = allowed;
+    }
+
     const created = await Project.create({
       name: String(name).trim(),
       key: String(key).toUpperCase(),
       ownerId: user.sub,
-      members: Array.isArray(members) ? members.map(String) : [],
+      members: sanitizedMembers,
       dueDate: due,
     });
 

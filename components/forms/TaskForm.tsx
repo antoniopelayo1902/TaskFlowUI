@@ -14,6 +14,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { toast } from "@/lib/toast";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { fetchUsers, type SimpleUser } from "@/services/api/users-public.service";
+import { isAdmin, isManager } from "@/lib/roles";
 
 const schema = z.object({
   title: z.string().trim().min(1, { message: "Título requerido" }),
@@ -39,6 +41,8 @@ export default function TaskForm({
   onSaved?: (task: Task) => void;
 }) {
   const { user } = useAuth();
+  const canAssign = isAdmin(user) || isManager(user);
+  const [assignable, setAssignable] = React.useState<SimpleUser[]>([]);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -68,6 +72,24 @@ export default function TaskForm({
   });
 
   const [saving, setSaving] = React.useState(false);
+
+  React.useEffect(() => {
+    let mounted = true;
+    if (canAssign) {
+      fetchUsers()
+        .then((us) => {
+          if (mounted) setAssignable(us);
+        })
+        .catch(() => {
+          if (mounted) setAssignable([]);
+        });
+    } else {
+      setAssignable([]);
+    }
+    return () => {
+      mounted = false;
+    };
+  }, [canAssign]);
 
   const onSubmit = async (values: FormValues) => {
     setSaving(true);
@@ -144,6 +166,25 @@ export default function TaskForm({
         </div>
       </div>
 
+      {canAssign ? (
+        <div>
+          <label className="mb-1 block text-sm font-medium">Asignado a</label>
+          <select
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            {...form.register("assigneeId")}
+          >
+            <option value={user?.id ?? ""}>
+              {(user?.name ?? "Yo") + (user?.email ? ` (${user.email})` : "")}
+            </option>
+            {assignable.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.name} ({u.email})
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : null}
+
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
           <label className="mb-1 block text-sm font-medium">Vence</label>
@@ -179,7 +220,9 @@ export default function TaskForm({
       </div>
 
       <input type="hidden" {...form.register("projectId")} />
-      <input type="hidden" {...form.register("assigneeId")} value={user?.id ?? ""} />
+      {!canAssign && (
+        <input type="hidden" {...form.register("assigneeId")} value={user?.id ?? ""} />
+      )}
 
       <div className="flex items-center justify-end gap-2">
         <Button type="submit" disabled={saving}>

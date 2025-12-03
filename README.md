@@ -147,6 +147,30 @@ Reglas de visibilidad (owner‑scoped)
   - GET /api/sprints: requiere JWT; retorna sólo sprints cuyos projectId pertenezcan a proyectos del owner (y si se envía ?projectId verifica pertenencia).
   - POST /api/sprints: valida que projectId pertenezca al owner.
 
+Roles y capacidades (RBAC)
+- Estado actual
+  - Admin:
+    - Acceso a “Administración/Usuarios” (/admin/users)
+    - Cambiar rol de usuarios (validación: no auto-degradarse ni dejar el sistema sin admins)
+    - Enlace de administración visible solo para admin (UI) y protegido server-side
+  - Manager y Developer:
+    - Tienen las mismas capacidades efectivas hoy. Las restricciones principales son por owner-scope (solo ves/operas tus recursos).
+- Cómo entrar como Admin
+  - Ejecutar: node scripts/create-admin.js (usa MONGODB_URI de .env.local)
+  - Iniciar sesión con admin@taskflow.com / admin123 (o promover a otro usuario desde /admin/users)
+- Cómo entrar como Manager
+  - Opción A (auto-asignación por dominio): definir ALLOWLIST_MANAGER_DOMAINS=empresa.com,otra.com en .env.local y registrar un usuario con ese dominio (o primer login por Google)
+  - Opción B (promoción): un admin cambia el rol a “manager” en /admin/users
+- Política propuesta para diferenciar Manager vs Developer (opcional)
+  - Sprints (de sus proyectos): crear/editar/finalizar/reabrir
+  - Proyectos (si es owner): finalizar/reabrir (eliminar solo admin u opcional)
+  - Tareas (del proyecto): editar/cambiar estado de tareas del equipo; ajustar prioridad/puntos
+  - Developer: crea/edita sus tareas y cambia su estado; sin privilegios de cierre de sprint/proyecto ni edición de tareas de otros
+- Implementación sugerida
+  - Políticas centralizadas de permisos en lib/permissions.ts (can(user).action(subject))
+  - Gates en UI (If roleIn / useCan) y enforcement en API (403)
+  - Tests unitarios/E2E para reglas de rol
+
 Endpoints (resumen)
 Auth
 - POST /api/auth/register

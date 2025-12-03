@@ -8,6 +8,7 @@ export type Sprint = {
   endDate: string;   // ISO
   goal?: string;
   completed?: boolean;
+  members?: string[]; // usuarios asignados al sprint
 };
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000/api";

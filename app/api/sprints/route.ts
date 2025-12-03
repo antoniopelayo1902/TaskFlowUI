@@ -36,19 +36,20 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const projectId = searchParams.get("projectId") ?? undefined;
 
-  // Obtener proyectos del owner
-  const ownerProjects = await Project.find({ ownerId: user.sub }).select({ _id: 1 });
-  const allowedIds = new Set(ownerProjects.map((p: any) => String(p._id)));
+  // Proyectos en los que el usuario participa (owner o miembro)
+  const projDocs = await Project.find({
+    $or: [{ ownerId: user.sub }, { members: user.sub }],
+  }).select({ _id: 1 });
+  const allowedIds = new Set(projDocs.map((p: any) => String(p._id)));
 
+  // Sprints visibles si:
+  // - pertenecen a un proyecto donde el usuario es owner/miembro, o
+  // - el sprint contiene al usuario en members
   const filter: Record<string, any> = {};
   if (projectId) {
-    // Solo permitir projectId si pertenece al owner
-    if (!allowedIds.has(String(projectId))) {
-      return NextResponse.json({ sprints: [] }, { status: 200 });
-    }
-    filter.projectId = String(projectId);
+    filter.$or = [{ projectId: String(projectId) }, { members: user.sub }];
   } else {
-    filter.projectId = { $in: Array.from(allowedIds) };
+    filter.$or = [{ projectId: { $in: Array.from(allowedIds) } }, { members: user.sub }];
   }
 
   const docs = await Sprint.find(filter).sort({ startDate: -1 });
@@ -61,6 +62,7 @@ export async function GET(req: Request) {
     endDate: d.endDate ? new Date(d.endDate).toISOString() : undefined,
     goal: typeof d.goal === "string" ? (d.goal as string) : undefined,
     completed: typeof d.completed === "boolean" ? (d.completed as boolean) : false,
+    members: Array.isArray(d.members) ? (d.members as string[]) : [],
   }));
 
   return NextResponse.json({ sprints }, { status: 200 });
@@ -86,6 +88,11 @@ export async function POST(req: Request) {
       );
     }
 
+    // Requiere rol manager|admin
+    if (user.role !== "manager" && user.role !== "admin") {
+      return NextResponse.json({ message: "No autorizado" }, { status: 403 });
+    }
+
     // Validar que el proyecto pertenezca al owner
     const proj = await Project.findOne({ _id: String(projectId), ownerId: user.sub });
     if (!proj) {
@@ -99,6 +106,7 @@ export async function POST(req: Request) {
       endDate: new Date(endDate),
       goal: typeof goal === "string" ? goal : undefined,
       completed: typeof completed === "boolean" ? completed : false,
+      members: Array.isArray((proj as any).members) ? (((proj as any).members as string[])) : [],
     });
 
     return NextResponse.json(
@@ -111,6 +119,7 @@ export async function POST(req: Request) {
           endDate: doc.endDate ? new Date(doc.endDate).toISOString() : undefined,
           goal: doc.goal,
           completed: typeof (doc as any).completed === "boolean" ? ((doc as any).completed as boolean) : false,
+          members: Array.isArray((doc as any).members) ? (((doc as any).members as string[])) : [],
         },
       },
       { status: 201 }

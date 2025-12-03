@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import type { User, Role } from "@/lib/roles";
 import { toast } from "@/lib/toast";
+import { updateUserRole } from "@/services/api/users.service";
 
 const schema = z.object({
   name: z.string().trim().min(1, { message: "Nombre requerido" }),
@@ -34,16 +35,23 @@ export default function UserForm({
   const onSubmit = async (values: FormInput) => {
     setSaving(true);
     try {
-      const saved: User = initial
-        ? { ...initial, ...values }
-        : {
-            id: `u${Math.floor(Math.random() * 10000)}`,
-            ...values,
-          };
-      if (initial) toast.info("Actualizado", "Usuario actualizado correctamente");
-      else toast.success("Se creó correctamente");
+      let saved: User;
+      if (initial) {
+        // Persistir cambio de rol vía endpoint admin protegido
+        await updateUserRole(initial.id, values.role);
+        saved = { ...initial, role: values.role, name: values.name, email: values.email };
+        toast.info("Actualizado", "Rol actualizado correctamente");
+      } else {
+        // Crear usuario (mock, sin backend en esta versión)
+        saved = {
+          id: `u${Math.floor(Math.random() * 10000)}`,
+          ...values,
+        };
+        toast.success("Se creó (mock)");
+      }
       onSaved?.(saved);
-    } catch {
+    } catch (e) {
+      console.error(e);
       toast.destructive("Error", "No se pudo guardar");
     } finally {
       setSaving(false);
@@ -103,7 +111,7 @@ export default function UserForm({
         </button>
       </div>
       <p className="text-xs text-muted-foreground">
-        Nota: Este formulario es solo mock; no se guarda en ningún backend.
+        Nota: En edición se persiste solo el rol (endpoint admin). La creación sigue siendo de ejemplo (mock).
       </p>
     </form>
   );

@@ -15,18 +15,23 @@ type MinimalUser = {
 type Props = {
   onCreate?: () => void;
   onEdit?: (user: MinimalUser) => void;
+  refreshToken?: number;
 };
 
-export default function UsersTable({ onCreate, onEdit }: Props) {
+export default function UsersTable({ onCreate, onEdit, refreshToken }: Props) {
   const [users, setUsers] = React.useState<AdminUser[]>([]);
   const [q, setQ] = React.useState("");
   const [role, setRole] = React.useState<Role | "all">("all");
 
-  React.useEffect(() => {
+  const load = React.useCallback(() => {
     fetchAdminUsers()
       .then((us) => setUsers(us))
       .catch(() => setUsers([]));
   }, []);
+
+  React.useEffect(() => {
+    load();
+  }, [load, refreshToken]);
 
   const filtered = React.useMemo(() => {
     const term = q.trim().toLowerCase();
@@ -44,8 +49,8 @@ export default function UsersTable({ onCreate, onEdit }: Props) {
     return (
       <EmptyState
         title="Sin usuarios"
-        description="Agrega usuarios de ejemplo en el mock si lo deseas."
-        actionLabel="Crear usuario"
+        description="Usa el seed de admin y registra usuarios. Para cambiar rol, edita un usuario existente."
+        actionLabel="Crear usuario (mock)"
         onAction={onCreate}
       />
     );

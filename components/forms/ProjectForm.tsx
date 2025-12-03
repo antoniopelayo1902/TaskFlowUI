@@ -8,6 +8,9 @@ import type { Project } from "@/services/api/projects.service";
 import { createProject, updateProject } from "@/services/api/projects.service";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/lib/toast";
+import { fetchUsers, type SimpleUser } from "@/services/api/users-public.service";
+import { useAuth } from "@/components/providers/AuthProvider";
+import { isAdmin, isManager } from "@/lib/roles";
 
 const schema = z.object({
   name: z.string().trim().min(1, { message: "Nombre requerido" }),
@@ -18,6 +21,7 @@ const schema = z.object({
     .max(6, { message: "Max 6 caracteres" })
     .regex(/^[A-Z0-9]+$/, { message: "Solo mayúsculas y números" }),
   dueDate: z.string().optional(),
+  members: z.array(z.string()).optional(),
 });
 
 type FormInput = z.input<typeof schema>;
@@ -29,6 +33,10 @@ export default function ProjectForm({
   onSaved?: (project: Project) => void;
   initial?: Project | null;
 }) {
+  const { user } = useAuth();
+  const canAssign = isAdmin(user) || isManager(user);
+  const [assignable, setAssignable] = React.useState<SimpleUser[]>([]);
+
   const form = useForm<FormInput>({
     resolver: zodResolver(schema),
     defaultValues: initial
@@ -41,17 +49,49 @@ export default function ProjectForm({
           name: "",
           key: "",
           dueDate: "",
+          members: [],
         },
   });
 
   const [saving, setSaving] = React.useState(false);
 
+  React.useEffect(() => {
+    let mounted = true;
+    if (canAssign) {
+      fetchUsers()
+        .then((us) => {
+          if (!mounted) return;
+          setAssignable(us);
+        })
+        .catch(() => {
+          if (!mounted) return;
+          setAssignable([]);
+        });
+    } else {
+      setAssignable([]);
+    }
+    return () => {
+      mounted = false;
+    };
+  }, [canAssign]);
+
 
   const onSubmit = async (values: FormInput) => {
     setSaving(true);
     try {
+      // Validación: si manager/admin puede asignar, exigir elegir miembros (al menos uno)
+      if (!initial && canAssign) {
+        const picked = (values.members ?? []).filter(Boolean);
+        if (picked.length === 0) {
+          toast.destructive("Selecciona al menos un miembro del dominio");
+          setSaving(false);
+          return;
+        }
+      }
+
       const payload = {
         ...values,
+        members: (values.members ?? []).filter(Boolean),
         dueDate: values.dueDate && values.dueDate.length ? values.dueDate : undefined,
       };
       const projectInput = payload as any;
@@ -124,6 +164,29 @@ export default function ProjectForm({
             </p>
           )}
         </div>
+
+        {canAssign ? (
+          <div>
+            <label className="mb-1 block text-sm font-medium">
+              Miembros del proyecto (solo developers de tu dominio)
+            </label>
+            <select
+              multiple
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              {...form.register("members")}
+              size={Math.min(8, Math.max(3, assignable.length))}
+            >
+              {assignable.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.name} ({u.email})
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Mantén Ctrl/Cmd para seleccionar múltiples usuarios. El backend aplica un filtrado de seguridad.
+            </p>
+          </div>
+        ) : null}
       </div>
 
 

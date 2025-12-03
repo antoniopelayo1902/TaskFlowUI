@@ -3,6 +3,7 @@ import { connectDB } from "@/lib/db";
 import { Task } from "@/models/Task";
 import { verifyUserToken } from "@/lib/jwt";
 import { getIO } from "@/lib/socket-server";
+import { isAssignableDeveloperForManager } from "@/lib/permissions";
 
 type JwtPayload = {
   sub: string;
@@ -90,13 +91,29 @@ export async function POST(req: Request) {
     const allowedStatuses = new Set(["Todo", "Doing", "Done"]);
     const allowedPriorities = new Set(["High", "Medium", "Low"]);
 
-    // Forzar asignación al creador (no permitir escoger otro usuario)
+    // Determinar asignación:
+    // - Developer: siempre a sí mismo (user.sub)
+    // - Manager: puede asignar solo a developers de su mismo dominio
+    // - Admin: puede asignar a cualquier developer
+    let finalAssigneeId: string = user.sub;
+    if (typeof assigneeId === "string" && (user.role === "manager" || user.role === "admin")) {
+      try {
+        const ok = await isAssignableDeveloperForManager(user, String(assigneeId));
+        if (ok) {
+          finalAssigneeId = String(assigneeId);
+        }
+      } catch {
+        // Silenciar y dejar asignación por defecto (self)
+      }
+    }
+
+    // Asignación controlada según rol (ver lógica arriba)
     const doc = await Task.create({
       projectId: String(projectId),
       title: String(title).trim(),
       status: allowedStatuses.has(status) ? status : "Todo",
       priority: allowedPriorities.has(priority) ? priority : "Medium",
-      assigneeId: user.sub, // fuerza asignación al creador
+      assigneeId: finalAssigneeId,
       dueDate: dueDate ? new Date(dueDate) : undefined,
       points: typeof points === "number" ? points : undefined,
       tags: Array.isArray(tags) ? tags.map(String) : [],
