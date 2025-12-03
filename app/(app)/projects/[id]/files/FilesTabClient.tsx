@@ -17,6 +17,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { useAuth } from "@/components/providers/AuthProvider";
 
 interface ProjectFile {
   id: string;
@@ -28,6 +29,7 @@ interface ProjectFile {
 }
 
 export default function FilesTabClient({ projectId }: { projectId: string }) {
+  const { token } = useAuth();
   const [files, setFiles] = useState<ProjectFile[]>([]);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -44,6 +46,8 @@ export default function FilesTabClient({ projectId }: { projectId: string }) {
 
     try {
       const res = await fetch(`/api/files?projectId=${projectId}`, {
+        method: "GET",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
         cache: "no-store",
       });
 
@@ -100,6 +104,7 @@ export default function FilesTabClient({ projectId }: { projectId: string }) {
 
       const res = await fetch(`/api/files`, {
         method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: formData,
       });
 
@@ -122,7 +127,10 @@ export default function FilesTabClient({ projectId }: { projectId: string }) {
     try {
       const res = await fetch(
         `/api/files/${fileId}?projectId=${projectId}`,
-        { method: "DELETE" }
+        {
+          method: "DELETE",
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        }
       );
 
       if (!res.ok) throw new Error("Delete failed");
