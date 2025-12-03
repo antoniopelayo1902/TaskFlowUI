@@ -209,6 +209,7 @@ Server/API
 - MONGODB_URI=mongodb://localhost:27017/taskflow
 - JWT_SECRET=un_secret_largo_aleatorio
 - JWT_EXPIRES_IN=7d
+- ALLOWLIST_MANAGER_DOMAINS=empresa.com,otra.com  (opcional: dominios que auto‑asignan rol manager al registrarse/Google)
 - GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI
 
 Client
