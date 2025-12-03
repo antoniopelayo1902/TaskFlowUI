@@ -104,9 +104,12 @@ export async function PUT(
         allowed.assigneeId = String(patch.assigneeId);
       }
     } else {
-      // Developer (solo su tarea): NO puede cambiar tags ni assigneeId
-      if (typeof patch.assigneeId === "string" || Array.isArray(patch.tags)) {
+      // Developer (solo su tarea): puede actualizar sus propias etiquetas, pero no puede cambiar el assignee
+      if (typeof patch.assigneeId === "string") {
         return NextResponse.json({ message: "Operación no permitida" }, { status: 403 });
+      }
+      if (Array.isArray(patch.tags)) {
+        allowed.tags = patch.tags.map(String);
       }
     }
 

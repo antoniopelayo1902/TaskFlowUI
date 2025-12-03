@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { Project } from "@/models/Project";
+import { User } from "@/models/User";
 import { verifyUserToken } from "@/lib/jwt";
 import { getIO } from "@/lib/socket-server";
 import { isAssignableDeveloperForManager } from "@/lib/permissions";
@@ -50,6 +51,8 @@ export async function GET(
     );
   }
 
+  const owner = await User.findById(String(doc.ownerId), { name: 1, email: 1 }).lean();
+
   return NextResponse.json(
     {
       project: {
@@ -57,6 +60,8 @@ export async function GET(
         name: doc.name,
         key: doc.key,
         ownerId: doc.ownerId,
+        ownerName: (owner as any)?.name,
+        ownerEmail: (owner as any)?.email,
         members: doc.members ?? [],
         createdAt: (doc as any)?.createdAt?.toISOString?.() ?? new Date((doc as any)?.createdAt).toISOString(),
         dueDate: (doc as any)?.dueDate ? new Date((doc as any)?.dueDate).toISOString() : undefined,

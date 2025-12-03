@@ -7,20 +7,37 @@ const priorityColor: Record<NonNullable<Task["priority"]>, string> = {
   Low: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
 };
 
-export default function TaskCard({ task }: { task: Task }) {
+export default function TaskCard({
+  task,
+  assigneeNameById,
+}: {
+  task: Task;
+  assigneeNameById?: Record<string, string>;
+}) {
   return (
     <div
       className="group cursor-grab rounded-lg border bg-card p-3 active:cursor-grabbing"
       role="button"
       aria-label={`Tarea ${task.title}`}
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.setData("text/plain", task.id);
+      }}
     >
       <div className="mb-2 flex items-start justify-between gap-2">
         <h4 className="text-sm font-medium">{task.title}</h4>
-        {task.points !== undefined && (
-          <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
-            {task.points} pts
-          </span>
-        )}
+        <div className="flex items-center gap-1">
+          {task.assigneeId && (
+            <span className="rounded border px-1.5 py-0.5 text-[10px] text-muted-foreground" title={task.assigneeId}>
+              Asignado: {assigneeNameById?.[task.assigneeId] ?? task.assigneeId.slice(0, 6)}
+            </span>
+          )}
+          {task.points !== undefined && (
+            <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+              {task.points} pts
+            </span>
+          )}
+        </div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
         {task.priority && (

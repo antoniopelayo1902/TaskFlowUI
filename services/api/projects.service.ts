@@ -9,6 +9,9 @@ export type Project = {
   createdAt?: string;
   dueDate?: string;
   completed?: boolean;
+  // Opcionales para mostrar en tablas sin depender de fetchUsers()
+  ownerName?: string;
+  ownerEmail?: string;
 };
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000/api";

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { Task } from "@/models/Task";
+import { Project } from "@/models/Project";
 import { verifyUserToken } from "@/lib/jwt";
 import { getIO } from "@/lib/socket-server";
 import { isAssignableDeveloperForManager } from "@/lib/permissions";
@@ -36,9 +37,27 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const projectId = searchParams.get("projectId") ?? undefined;
 
-  // Owner-scope: solo ver tareas creadas por el usuario (assignee = creador)
-  const filter: Record<string, any> = { assigneeId: user.sub };
-  if (projectId) filter.projectId = projectId;
+  let filter: Record<string, any> = {};
+  if (user.role === "manager" || user.role === "admin") {
+    // Tareas de proyectos del owner (manager/admin) + opcionalmente propias
+    const owned = await Project.find({ ownerId: user.sub }).select({ _id: 1 }).lean();
+    const ownedIds = new Set(owned.map((p: any) => String(p._id)));
+    if (projectId) {
+      // restringir al project solicitado si es del owner; si no, devolver vacío
+      if (ownedIds.has(String(projectId))) {
+        filter.projectId = String(projectId);
+      } else {
+        // aún así, permitir ver sus propias tareas en ese proyecto si existieran (seguridad conservadora)
+        filter = { projectId: String(projectId), assigneeId: user.sub };
+      }
+    } else {
+      filter = { $or: [{ projectId: { $in: Array.from(ownedIds) } }, { assigneeId: user.sub }] };
+    }
+  } else {
+    // Developer: solo sus tareas
+    filter = { assigneeId: user.sub };
+    if (projectId) filter.projectId = projectId;
+  }
 
   const docs = await Task.find(filter).sort({ createdAt: -1 });
 

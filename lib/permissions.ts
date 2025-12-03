@@ -1,6 +1,7 @@
 import { Project } from "@/models/Project";
 import { Task } from "@/models/Task";
 import { User } from "@/models/User";
+import { Sprint } from "@/models/Sprint";
 
 // Local JWT payload type for permissions (aligns with verifyUserToken return shape)
 type JwtUserPayload = { sub: string; email: string; role: "admin" | "manager" | "developer" };
@@ -94,4 +95,34 @@ export function userListFilterByRequester(
     return { role: "developer", domain: emailDomain(requester.email), allowed: true };
   }
   return { allowed: false };
+}
+
+/**
+ * Check if a user participates in a project.
+ * True if:
+ *  - user is owner of the project
+ *  - user is in project.members
+ *  - user is in any sprint.members of that project
+ *  - user has any task in that project assigned (assigneeId=userId)
+ */
+export async function participatesInProject(userId: string, projectId: string) {
+  const p = await Project.findById(projectId)
+    .select({ ownerId: 1, members: 1 })
+    .lean<{ ownerId: string; members: string[] }>();
+  if (!p) return false;
+
+  if (String(p.ownerId) === String(userId)) return true;
+  if (Array.isArray(p.members) && p.members.some((m) => String(m) === String(userId))) return true;
+
+  const sprint = await Sprint.findOne({ projectId: String(projectId), members: String(userId) })
+    .select({ _id: 1 })
+    .lean();
+  if (sprint) return true;
+
+  const task = await Task.findOne({ projectId: String(projectId), assigneeId: String(userId) })
+    .select({ _id: 1 })
+    .lean();
+  if (task) return true;
+
+  return false;
 }

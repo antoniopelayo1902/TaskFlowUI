@@ -153,6 +153,20 @@ export default function ProjectForm({
         </div>
       </div>
 
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div>
+          <label className="mb-1 block text-sm font-medium">Propietario</label>
+          <input
+            className="w-full rounded-md border border-input bg-muted px-3 py-2 text-sm"
+            value={`${user?.name ?? ""}${user?.email ? ` (${user.email})` : ""}`}
+            readOnly
+          />
+          <p className="mt-1 text-xs text-muted-foreground">
+            Se asignará automáticamente al crear el proyecto.
+          </p>
+        </div>
+      </div>
+
       <div className="space-y-3">
         <div>
           <label className="mb-1 block text-sm font-medium">Fecha de entrega</label>

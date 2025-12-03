@@ -43,6 +43,7 @@ export default function TaskForm({
   const { user } = useAuth();
   const canAssign = isAdmin(user) || isManager(user);
   const [assignable, setAssignable] = React.useState<SimpleUser[]>([]);
+  const [tagsText, setTagsText] = React.useState("");
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -90,6 +91,13 @@ export default function TaskForm({
       mounted = false;
     };
   }, [canAssign]);
+
+  // Inicializar el campo de texto de etiquetas desde los valores del formulario
+  React.useEffect(() => {
+    const initialTags = (form.getValues("tags") ?? []) as string[];
+    setTagsText(initialTags.join(", "));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const onSubmit = async (values: FormValues) => {
     setSaving(true);
@@ -217,6 +225,27 @@ export default function TaskForm({
           placeholder="Notas o descripción..."
           {...form.register("description")}
         />
+      </div>
+
+      <div>
+        <label className="mb-1 block text-sm font-medium">Etiquetas</label>
+        <input
+          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          placeholder="bug, ui, sprint-123"
+          value={tagsText}
+          onChange={(e) => {
+            const v = e.target.value;
+            setTagsText(v);
+            const parsed = v
+              .split(",")
+              .map((s) => s.trim())
+              .filter(Boolean);
+            form.setValue("tags", parsed, { shouldDirty: true, shouldValidate: true });
+          }}
+        />
+        <p className="mt-1 text-xs text-muted-foreground">
+          Separa por comas. Ejemplo: diseño, backend, sprint-42
+        </p>
       </div>
 
       <input type="hidden" {...form.register("projectId")} />
