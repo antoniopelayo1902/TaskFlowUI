@@ -47,6 +47,7 @@ export default function ProjectForm({
           name: initial.name,
           key: initial.key,
           dueDate: initial.dueDate ? initial.dueDate.slice(0, 10) : "",
+          members: initial.members ?? [],
         }
       : {
           name: "",

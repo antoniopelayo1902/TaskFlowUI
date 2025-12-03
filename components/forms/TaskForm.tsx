@@ -45,6 +45,43 @@ export default function TaskForm({
   const [assignable, setAssignable] = React.useState<SimpleUser[]>([]);
   const [tagsText, setTagsText] = React.useState("");
 
+  const hasInitialAssigneeInList = React.useMemo(
+    () =>
+      !!(
+        initial?.assigneeId &&
+        (assignable.some((u) => u.id === initial.assigneeId) ||
+          initial.assigneeId === (user?.id ?? ""))
+      ),
+    [assignable, initial, user]
+  );
+
+  const assigneeOptions = React.useMemo<{ id: string; label: string }[]>(() => {
+    const opts: { id: string; label: string }[] = [];
+    if (user?.id) {
+      opts.push({
+        id: user.id,
+        label: `${user.name ?? "Yo"}${user.email ? ` (${user.email})` : ""}`,
+      });
+    }
+    if (initial?.assigneeId) {
+      const alreadyInList =
+        (user?.id && initial.assigneeId === user.id) ||
+        assignable.some((u) => u.id === initial.assigneeId);
+      if (!alreadyInList) {
+        opts.push({
+          id: initial.assigneeId,
+          label: `Asignado actual (${initial.assigneeId.slice(0, 6)})`,
+        });
+      }
+    }
+    assignable.forEach((u) => {
+      if (!opts.some((o) => o.id === u.id)) {
+        opts.push({ id: u.id, label: `${u.name} (${u.email})` });
+      }
+    });
+    return opts;
+  }, [user, initial, assignable]);
+
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: initial
@@ -53,7 +90,7 @@ export default function TaskForm({
           status: initial.status,
           priority: initial.priority,
           assigneeId: initial.assigneeId ?? (user?.id ?? ""),
-          dueDate: initial.dueDate ?? "",
+          dueDate: initial.dueDate ? initial.dueDate.slice(0, 10) : "",
           points: initial.points ?? undefined,
           projectId: initial.projectId,
           description: initial.description ?? "",
@@ -181,12 +218,9 @@ export default function TaskForm({
             className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
             {...form.register("assigneeId")}
           >
-            <option value={user?.id ?? ""}>
-              {(user?.name ?? "Yo") + (user?.email ? ` (${user.email})` : "")}
-            </option>
-            {assignable.map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.name} ({u.email})
+            {assigneeOptions.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.label}
               </option>
             ))}
           </select>
