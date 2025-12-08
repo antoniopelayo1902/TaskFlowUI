@@ -89,7 +89,26 @@ export async function loginWithGoogleAuthCode(
   });
 
   if (!res.ok) {
-    throw new Error("No fue posible iniciar sesión con Google");
+    let text = "";
+    try {
+      text = await res.text();
+    } catch {}
+    // Log enriquecido para diagnosticar en desarrollo/prod
+    console.error(
+      "[auth.service] Google token exchange failed",
+      res.status,
+      res.statusText,
+      text
+    );
+    try {
+      const json = JSON.parse(text);
+      console.error(
+        "[auth.service] server error payload",
+        json?.code,
+        json?.message
+      );
+    } catch {}
+    throw new Error(`No fue posible iniciar sesión con Google (${res.status})`);
   }
 
   const data = (await res.json()) as LoginResponse;
